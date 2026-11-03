@@ -26,7 +26,8 @@ need 'pos-backup.timer'
 need 'systemctl enable --now'
 grep -q -- '--factory' "$D/pos.service" || { echo "FAIL: --factory"; exit 1; }
 grep -q 'Persistent=true' "$D/pos-backup.timer" || { echo "FAIL: Persistent"; exit 1; }
-grep -q '02:30' "$D/pos-backup.timer" || { echo "FAIL: 02:30"; exit 1; }
+grep -qx 'OnCalendar=\*-\*-\* 02:30:00 Asia/Ho_Chi_Minh' "$D/pos-backup.timer" || { echo "FAIL: 02:30 Asia/Ho_Chi_Minh"; exit 1; }
+grep -q 'TZ=Asia/Ho_Chi_Minh date +%F' "$D/backup.sh" || { echo "FAIL: backup.sh Vietnam date"; exit 1; }
 # Pinned server dependencies
 needF '-c "$APP/server/requirements.lock"'
 L="$D/../server/requirements.lock"

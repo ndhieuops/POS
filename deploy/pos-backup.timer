@@ -1,8 +1,8 @@
 [Unit]
-Description=POS nightly backup at 02:30
+Description=POS nightly backup at 02:30 (Vietnam time)
 
 [Timer]
-OnCalendar=*-*-* 02:30:00
+OnCalendar=*-*-* 02:30:00 Asia/Ho_Chi_Minh
 Persistent=true
 
 [Install]

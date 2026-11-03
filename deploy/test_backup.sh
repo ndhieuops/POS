@@ -12,7 +12,7 @@ touch -d '31 days ago' "$OLD"; touch -d '5 days ago' "$KEEP"
 
 bash "$HERE/backup.sh"
 
-TODAY="$POS_BACKUP_DIR/pos-$(date +%F).db"
+TODAY="$POS_BACKUP_DIR/pos-$(TZ=Asia/Ho_Chi_Minh date +%F).db"
 [ -s "$TODAY" ] || { echo "FAIL: $TODAY missing"; exit 1; }
 [ ! -e "$OLD" ] || { echo "FAIL: old backup not deleted"; exit 1; }
 [ -e "$KEEP" ] || { echo "FAIL: recent backup deleted"; exit 1; }
