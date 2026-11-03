@@ -27,7 +27,7 @@ def _out(d: Device) -> dict:
     return {"id": d.id, "name": d.name, "floor": d.floor}
 
 
-def _get_or_404(db: Session, device_id: str) -> Device:
+def get_or_404(db: Session, device_id: str) -> Device:
     d = db.get(Device, device_id)
     if d is None:
         raise HTTPException(404, messages.DEVICE_UNKNOWN)
@@ -44,12 +44,12 @@ def register_device(body: DeviceIn, db: Session = Depends(get_db)):
 
 @router.get("/devices/{device_id}")
 def get_device(device_id: str, db: Session = Depends(get_db)):
-    return _out(_get_or_404(db, device_id))
+    return _out(get_or_404(db, device_id))
 
 
 @router.put("/owner/devices/{device_id}", dependencies=[Depends(auth.require_owner)])
 def set_device_floor(device_id: str, body: DeviceFloorIn, db: Session = Depends(get_db)):
-    d = _get_or_404(db, device_id)
+    d = get_or_404(db, device_id)
     d.floor = body.floor
     db.commit()
     return _out(d)

@@ -40,3 +40,29 @@ def owner_client(configured_client):
     )
     assert r.status_code == 200
     return configured_client
+
+
+@pytest.fixture
+def device(owner_client):
+    """Owner-logged-in client plus a registered floor1 device id."""
+    r = owner_client.post("/api/owner/devices", json={"name": "Quầy", "floor": "floor1"})
+    assert r.status_code == 201
+    owner_client.device_id = r.json()["id"]
+    return owner_client
+
+
+@pytest.fixture
+def make_product(owner_client):
+    def _make(stock_milli=0, sell_price=5000, cost=3600, barcode="8934", **kw):
+        body = {"barcode": barcode, "name": "Sữa", "unit": "hộp", "sell_price": sell_price,
+                "location": "grocery", "track_stock": True}
+        body.update(kw)
+        p = owner_client.post("/api/owner/products", json=body).json()
+        if stock_milli:
+            r = owner_client.post("/api/owner/receipts", json={
+                "barcode": body["barcode"], "location": "grocery",
+                "qty": stock_milli // 1000, "unit_cost": cost})
+            assert r.status_code == 200
+        return p
+
+    return _make
