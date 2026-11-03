@@ -3,10 +3,11 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from pos import messages
+from pos.bounds import MAX_ID, PathId
 from pos.db import get_db
 from pos.devices.routes import get_or_404 as get_device_or_404
 from pos.sales import service
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/api")
 
 
 class LineIn(BaseModel):
-    product_id: int | None = None
+    product_id: int | None = Field(default=None, ge=1, le=MAX_ID)
     name: str
     unit: str
     qty_milli: int
@@ -85,7 +86,7 @@ def create_sale(body: SaleIn, db: Session = Depends(get_db)):
 
 
 @router.post("/sales/{sale_id}/request-qr", response_model=SaleOut)
-def request_qr(sale_id: int, db: Session = Depends(get_db)):
+def request_qr(sale_id: PathId, db: Session = Depends(get_db)):
     try:
         return _out(db, service.request_qr(db, sale_id))
     except SaleError as e:
@@ -93,7 +94,7 @@ def request_qr(sale_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/sales/{sale_id}/confirm", response_model=SaleOut)
-def confirm(sale_id: int, body: ConfirmIn, db: Session = Depends(get_db)):
+def confirm(sale_id: PathId, body: ConfirmIn, db: Session = Depends(get_db)):
     try:
         return _out(db, service.confirm(db, sale_id, body.method))
     except SaleError as e:

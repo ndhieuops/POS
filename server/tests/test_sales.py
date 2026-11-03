@@ -332,3 +332,34 @@ def test_setup_validates_bank(client):
     from tests.helpers import SETUP
     r = client.post("/api/setup", json={**SETUP, "bank_bin": "", "bank_account_no": ""})
     assert r.status_code == 422
+
+
+def test_zero_price_custom_line_rejected(device):
+    r = _sale(device, [_custom(price=0)])
+    assert r.status_code == 422 and r.json()["detail"] == messages.INVALID_INPUT
+
+
+@pytest.mark.parametrize("line", [
+    _custom(price=1_000_000_001),
+    _custom(price=10**30),
+    _custom(qty=1_000_000_001),
+    _custom(qty=10**30),
+])
+def test_huge_values_give_422_not_500(device, line):
+    r = _sale(device, [line])
+    assert r.status_code == 422
+    assert r.json()["detail"] in (messages.QTY_INVALID, messages.INVALID_INPUT)
+
+
+def test_bounds_inclusive(device):
+    assert _sale(device, [_custom(price=1_000_000_000, qty=1000)]).status_code == 201
+
+
+def test_huge_product_id_gives_422_or_404_not_500(device):
+    r = _sale(device, [_pline(10**30)])
+    assert r.status_code in (404, 422)
+
+
+def test_huge_path_id_is_not_500(device):
+    r = device.post(f"/api/sales/{10**30}/confirm", json={"method": "cash"})
+    assert r.status_code in (404, 422)

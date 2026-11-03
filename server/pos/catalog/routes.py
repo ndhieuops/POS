@@ -13,6 +13,7 @@ from pos.catalog.schemas import (  # noqa: F401  (re-exported for later tasks)
 )
 from pos.db import get_db
 from pos.models import Product
+from pos.bounds import PathId
 
 router = APIRouter(prefix="/api")
 
@@ -59,7 +60,7 @@ def create_product(body: ProductIn, db: Session = Depends(get_db)):
     response_model=ProductOwnerOut,
     dependencies=[Depends(auth.require_owner)],
 )
-def update_product(product_id: int, body: ProductUpdate, db: Session = Depends(get_db)):
+def update_product(product_id: PathId, body: ProductUpdate, db: Session = Depends(get_db)):
     p = db.get(Product, product_id)
     if p is None:
         raise HTTPException(404, messages.PRODUCT_NOT_FOUND)

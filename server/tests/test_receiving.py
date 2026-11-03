@@ -96,3 +96,20 @@ def test_owner_by_barcode(owner_client, configured_client):
     assert r.status_code == 404 and r.json()["detail"] == messages.PRODUCT_NOT_FOUND
     owner_client.cookies.clear()
     assert owner_client.get("/api/owner/products/by-barcode/8934?location=grocery").status_code == 401
+
+
+def test_receipt_bounds(owner_client):
+    _make(owner_client)
+    r = _recv(owner_client, qty=1_000_001)
+    assert r.status_code == 422 and r.json()["detail"] == messages.QTY_INVALID
+    assert _recv(owner_client, qty=1_000_000).status_code == 200
+    for kw in ({"unit_cost": 1_000_000_001}, {"unit_cost": 10**30}, {"sell_price": 1_000_000_001},
+               {"sell_price": -1}, {"qty": 10**30}, {"unit": "x" * 31}):
+        r = _recv(owner_client, **kw)
+        assert r.status_code == 422, kw
+        assert r.json()["detail"] in (messages.QTY_INVALID, messages.INVALID_INPUT), kw
+
+
+def test_receipt_new_name_too_long(owner_client):
+    r = _recv(owner_client, barcode="999001", name="x" * 201, sell_price=1000)
+    assert r.status_code == 422 and r.json()["detail"] == messages.INVALID_INPUT

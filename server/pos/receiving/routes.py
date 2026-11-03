@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from pos import auth, messages
+from pos.bounds import MAX_MONEY, MAX_RECEIPT_QTY
 from pos.catalog import service as catalog
 from pos.catalog.schemas import Location, ProductOwnerOut
 from pos.db import get_db
@@ -17,9 +18,9 @@ class ReceiptIn(BaseModel):
     location: Location
     qty: int
     unit_cost: int
-    name: str | None = None
-    sell_price: int | None = None
-    unit: str = "cái"
+    name: str | None = Field(default=None, max_length=200)
+    sell_price: int | None = Field(default=None, ge=0, le=MAX_MONEY)
+    unit: str = Field(default="cái", max_length=30)
 
 
 class ReceiptOut(BaseModel):
@@ -32,8 +33,10 @@ class ReceiptOut(BaseModel):
 def receive(body: ReceiptIn, db: Session = Depends(get_db)):
     if not catalog.normalize_barcode(body.barcode) or not body.unit.strip():
         raise HTTPException(422, messages.INVALID_INPUT)
-    if body.qty < 1 or body.unit_cost < 0:
+    if not 1 <= body.qty <= MAX_RECEIPT_QTY or body.unit_cost < 0:
         raise HTTPException(422, messages.QTY_INVALID)
+    if body.unit_cost > MAX_MONEY:
+        raise HTTPException(422, messages.INVALID_INPUT)
     try:
         p, created = service.receive(
             db, barcode=body.barcode, location=body.location, qty=body.qty,

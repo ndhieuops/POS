@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 import re
 
 from pos import auth, messages, money, timeutil
+from pos.bounds import MAX_MONEY, MAX_QTY_MILLI
 from pos.models import Device, Product, Sale, SaleLine
 from pos.vietqr import build_vietqr_payload, payment_ref
 
@@ -32,9 +33,10 @@ def create_sale(db: Session, device_id: str, service: str, items: list) -> Sale:
         raise SaleError(409, messages.PENDING_PAYMENT, pend)
     if not items:
         raise SaleError(422, messages.CART_EMPTY)
-    if any(i.qty_milli <= 0 for i in items):
+    if any(not 0 < i.qty_milli <= MAX_QTY_MILLI for i in items):
         raise SaleError(422, messages.QTY_INVALID)
-    if any(i.unit_price < 0 for i in items if i.product_id is None):
+    # Custom (no product) lines carry their own price: must be > 0 and bounded.
+    if any(not 0 < i.unit_price <= MAX_MONEY for i in items if i.product_id is None):
         raise SaleError(422, messages.INVALID_INPUT)
     sale = Sale(device_id=device_id, service=service, status="open", total=0)
     db.add(sale)
