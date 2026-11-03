@@ -80,7 +80,12 @@ export default function App({ now }: { now?: () => Date } = {}) {
   const expired = () => navigate("/grocery", { state: { expired: true } })
   return (
     <Routes>
-      <Route path="/" element={<ServicePicker floor={device.floor} now={now} onPick={pick} />} />
+      <Route path="/" element={
+        // R14: floor 1 sells grocery only, so skip the one-option picker.
+        device.floor === "floor1"
+          ? <Navigate to="/grocery" replace />
+          : <ServicePicker floor={device.floor} now={now} onPick={pick} />
+      } />
       <Route path="/grocery" element={<GroceryRoute deviceId={device.id} onReceive={() => navigate("/receive")} />} />
       <Route path="/receive" element={<ReceiveGoods floor={device.floor} onExpired={expired} onBack={() => navigate("/grocery")} />} />
       <Route path="/soon" element={
@@ -97,6 +102,13 @@ export default function App({ now }: { now?: () => Date } = {}) {
 
 function GroceryRoute({ deviceId, onReceive }: { deviceId: string; onReceive: () => void }) {
   const loc = useLocation()
+  const navigate = useNavigate()
   const expired = (loc.state as { expired?: boolean } | null)?.expired === true
-  return <GroceryCheckout deviceId={deviceId} onReceive={onReceive} notice={expired ? vi.sessionExpired : undefined} />
+  // Read the flag once; GroceryCheckout keeps the notice for 10 s / until the first scan.
+  const [notice] = useState(expired ? vi.sessionExpired : undefined)
+  // Drop the flag from history so a reload does not show the notice again.
+  useEffect(() => {
+    if (expired) navigate(".", { replace: true, state: null })
+  }, [expired, navigate])
+  return <GroceryCheckout deviceId={deviceId} onReceive={onReceive} notice={notice} />
 }

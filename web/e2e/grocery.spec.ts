@@ -32,12 +32,9 @@ test("grocery flow: setup, receive, scan, QR, reload, confirm, stock 9", async (
   await page.getByRole("button", { name: vi.floor1 }).click()
   await page.getByRole("button", { name: vi.registerDevice }).click()
 
-  // Service picker: grocery only
-  await expect(page.getByRole("heading", { name: vi.chooseService })).toBeVisible()
-  await expect(page.getByRole("button", { name: vi.teaIceCream })).toHaveCount(0)
-  await expect(page.getByRole("button", { name: vi.pub })).toHaveCount(0)
-  await page.getByRole("button", { name: vi.grocery }).click()
+  // R14: a floor-1 device skips the one-option picker and lands on grocery
   await expect(page).toHaveURL(/\/grocery$/)
+  await expect(page.getByRole("heading", { name: vi.chooseService })).toHaveCount(0)
 
   // Receive goods (owner PIN)
   await page.getByRole("button", { name: vi.receiveGoods }).click()
