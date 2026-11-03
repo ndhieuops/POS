@@ -1,0 +1,27 @@
+:root {
+  --surface: #fff; --border: #cbd5e1; --text: #0f172a; --muted: #475569;
+  --primary: #15803d; --primary-text: #fff; --danger: #b91c1c; --surface-active: #e2e8f0;
+}
+.gc { display: grid; grid-template-columns: 1fr 340px; gap: 16px; padding: 16px; min-height: 100vh; color: var(--text); }
+.gc-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.gc-side { display: flex; flex-direction: column; gap: 12px; }
+.gc-input { width: 100%; box-sizing: border-box; min-height: 64px; font-size: 24px; padding: 0 16px; border: 2px solid var(--border); border-radius: 12px; }
+.gc-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.gc-empty { font-size: 24px; color: var(--muted); padding: 24px; text-align: center; }
+.gc-line { display: grid; grid-template-columns: 1fr auto auto auto; gap: 12px; align-items: center; padding: 8px 12px; border: 2px solid var(--border); border-radius: 12px; }
+.gc-name { font-size: 24px; font-weight: 600; }
+.gc-price { font-size: 24px; }
+.gc-qty { display: flex; align-items: center; gap: 8px; }
+.gc-qty-n { font-size: 28px; font-weight: 700; min-width: 40px; text-align: center; }
+.gc-notfound { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 24px; font-weight: 700; color: var(--danger); }
+.gc-error { font-size: 22px; font-weight: 600; color: var(--danger); }
+.gc-total-label { font-size: 22px; color: var(--muted); }
+.gc-total { font-size: 56px; font-weight: 800; line-height: 1.1; }
+.gc-wait { font-size: 20px; color: var(--muted); }
+.btn { min-height: 56px; padding: 0 20px; font-size: 22px; font-weight: 700; border-radius: 12px; border: 2px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.btn-danger { color: var(--danger); border-color: var(--danger); }
+.btn-sq { min-width: 56px; padding: 0; }
+.btn-big { min-height: 88px; }
+@media (max-width: 800px) { .gc { grid-template-columns: 1fr; } }

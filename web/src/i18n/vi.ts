@@ -40,4 +40,13 @@ export const vi = {
   remove: "Xóa",
   serverError: "Máy chủ gặp lỗi, vui lòng thử lại",
   networkError: "Mất kết nối với máy chủ",
+  cancel: "Hủy",
+  backspace: "⌫ Xóa số",
+  decrease: "Giảm",
+  increase: "Tăng",
+  addCustomPrice: "Thêm giá khác",
+  barcodeInput: "Mã vạch",
+  pleaseWait: "Đang xử lý…",
+  qrCodeLabel: "Mã QR chuyển khoản",
+  cartTitle: "Giỏ hàng",
 } as const

@@ -1,0 +1,8 @@
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.keypad-key {
+  min-height: 64px; font-size: 28px; font-weight: 600;
+  border: 2px solid var(--border, #cbd5e1); border-radius: 12px;
+  background: var(--surface, #fff); color: var(--text, #0f172a); cursor: pointer;
+}
+.keypad-key:active { background: var(--surface-active, #e2e8f0); }
+.keypad-back { grid-column: span 2; font-size: 20px; }

@@ -1,0 +1,12 @@
+.qr-card {
+  background: var(--surface, #fff); border-radius: 16px; padding: 20px;
+  width: min(440px, 100%); display: flex; flex-direction: column; gap: 12px;
+  align-items: stretch; text-align: center; max-height: 100%; overflow: auto;
+}
+.qr-total { font-size: 48px; font-weight: 800; }
+.qr-code { align-self: center; background: #fff; line-height: 0; }
+.qr-waiting { font-size: 22px; color: var(--muted, #475569); }
+.qr-error { font-size: 20px; color: var(--danger, #b91c1c); font-weight: 600; }
+.qr-paused { font-size: 16px; color: var(--muted, #475569); }
+.btn-big { min-height: 88px; font-size: 32px; }
+.btn-small { min-height: 56px; font-size: 18px; }
