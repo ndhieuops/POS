@@ -62,7 +62,7 @@ def _out(db: Session, sale) -> SaleOut:
     return SaleOut(
         id=sale.id, status=sale.status, total=sale.total,
         lines=[LineOut.model_validate(x) for x in service.lines_of(db, sale.id)],
-        payment_ref=sale.payment_ref, qr_payload=service.qr_payload(db, sale),
+        payment_ref=sale.payment_ref, qr_payload=sale.qr_payload if sale.status == "awaiting_payment" else None,
         payment_method=sale.payment_method, confirmed_via=sale.confirmed_via,
         paid_at=sale.paid_at, business_day=sale.business_day,
     )

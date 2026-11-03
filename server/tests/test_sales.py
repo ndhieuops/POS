@@ -32,7 +32,7 @@ def _stock(tmp_path, pid):
 def test_totals_server_side(device, make_product):
     p = make_product(stock_milli=10000, sell_price=5000)
     r = _sale(device, [_pline(p["id"], qty=3000, price=1)])
-    assert r.status_code == 201 or r.status_code == 200
+    assert r.status_code == 201
     j = r.json()
     assert j["status"] == "open"
     assert j["total"] == 15000
@@ -126,7 +126,7 @@ def test_other_device_not_blocked(device):
     device.post(f"/api/sales/{sid}/request-qr")
     d2 = device.post("/api/owner/devices", json={"name": "b", "floor": "floor1"}).json()["id"]
     r = device.post("/api/sales", json={"device_id": d2, "service": "grocery", "lines": [_custom()]})
-    assert r.status_code in (200, 201)
+    assert r.status_code == 201
 
 
 def test_second_request_qr_blocked(device):
@@ -251,3 +251,84 @@ def test_business_day_set(device, set_now):
     sid = _sale(device, [_custom()]).json()["id"]
     j = device.post(f"/api/sales/{sid}/confirm", json={"method": "cash"}).json()
     assert j["business_day"] == "2026-11-03"
+
+
+def test_confirm_has_no_unit_cost(device, make_product):
+    p = make_product(stock_milli=5000)
+    sid = _sale(device, [_pline(p["id"])]).json()["id"]
+    j = device.post(f"/api/sales/{sid}/confirm", json={"method": "cash"}).json()
+    assert "unit_cost" not in j["lines"][0] and "last_cost" not in str(j)
+
+
+def test_confirm_other_sale_blocked_while_pending(device, make_product, tmp_path):
+    p = make_product(stock_milli=5000)
+    a = _sale(device, [_custom()]).json()["id"]
+    b = _sale(device, [_pline(p["id"])]).json()["id"]
+    device.post(f"/api/sales/{a}/request-qr")
+    for m in ("cash", "bank_qr"):
+        r = device.post(f"/api/sales/{b}/confirm", json={"method": m})
+        assert r.status_code == 409
+        assert r.json()["detail"] == messages.PENDING_PAYMENT
+        assert r.json()["sale"]["id"] == a
+    assert _stock(tmp_path, p["id"]) == 5000
+    # the pending sale itself can still be confirmed
+    assert device.post(f"/api/sales/{a}/confirm", json={"method": "cash"}).status_code == 200
+
+
+def test_db_index_rejects_two_pending(device, tmp_path):
+    from sqlalchemy.exc import IntegrityError
+    from pos.models import Sale
+    eng = make_engine(str(tmp_path / "test.db"))
+    with make_sessionmaker(eng)() as s:
+        for _ in range(2):
+            s.add(Sale(device_id=device.device_id, service="grocery",
+                       status="awaiting_payment", total=1))
+        with pytest.raises(IntegrityError):
+            s.commit()
+
+
+def test_request_qr_second_open_sale_409(device):
+    a = _sale(device, [_custom()]).json()["id"]
+    b = _sale(device, [_custom()]).json()["id"]
+    device.post(f"/api/sales/{a}/request-qr")
+    r = device.post(f"/api/sales/{b}/request-qr")
+    assert r.status_code == 409
+    assert r.json()["detail"] == messages.PENDING_PAYMENT and r.json()["sale"]["id"] == a
+
+
+def test_request_qr_bank_not_configured(device):
+    from tests.helpers import SETUP
+    # bypass API validation: blank the setting directly
+    import sqlite3
+    sid = _sale(device, [_custom()]).json()["id"]
+    con = sqlite3.connect(device._db_path)
+    con.execute("update settings set value='' where key='bank_account_no'")
+    con.commit(); con.close()
+    r = device.post(f"/api/sales/{sid}/request-qr")
+    assert r.status_code == 409 and r.json()["detail"] == messages.BANK_NOT_CONFIGURED
+    assert device.get(f"/api/devices/{device.device_id}/pending-sale").status_code == 204
+    assert _sale(device, [_custom()]).status_code == 201
+    assert device.post(f"/api/sales/{sid}/confirm", json={"method": "cash"}).status_code == 200
+
+
+def test_qr_snapshot_survives_bank_change(device):
+    sid = _sale(device, [_custom()]).json()["id"]
+    qr = device.post(f"/api/sales/{sid}/request-qr").json()["qr_payload"]
+    r = device.put("/api/owner/settings", json={"bank_account_no": "999888777"})
+    assert r.status_code == 200
+    j = device.get(f"/api/devices/{device.device_id}/pending-sale").json()
+    assert j["qr_payload"] == qr and "0123456789" in qr
+
+
+@pytest.mark.parametrize("body", [{"bank_bin": "12345"}, {"bank_bin": "97043a"},
+                                  {"bank_account_no": ""}, {"bank_account_no": "1" * 20},
+                                  {"bank_account_no": "12 34"}])
+def test_bank_settings_validated(device, body):
+    r = device.put("/api/owner/settings", json=body)
+    assert r.status_code == 422 and r.json()["detail"] == messages.INVALID_INPUT
+
+
+def test_setup_validates_bank(client):
+    from tests.helpers import SETUP
+    r = client.post("/api/setup", json={**SETUP, "bank_bin": "", "bank_account_no": ""})
+    assert r.status_code == 422

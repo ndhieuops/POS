@@ -17,8 +17,8 @@ PUBLIC_KEYS = ("shop_name", *BANK_KEYS)
 class SetupIn(BaseModel):
     shop_name: str
     owner_pin: str
-    bank_bin: str
-    bank_account_no: str
+    bank_bin: str = Field(pattern=r"^\d{6}$")
+    bank_account_no: str = Field(pattern=r"^\d{1,19}$")
     bank_account_name: str
 
 
@@ -29,8 +29,8 @@ class LoginIn(BaseModel):
 
 class SettingsIn(BaseModel):
     shop_name: str | None = None
-    bank_bin: str | None = None
-    bank_account_no: str | None = None
+    bank_bin: str | None = Field(default=None, pattern=r"^\d{6}$")
+    bank_account_no: str | None = Field(default=None, pattern=r"^\d{1,19}$")
     bank_account_name: str | None = None
 
 

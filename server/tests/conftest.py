@@ -48,6 +48,7 @@ def device(owner_client):
     r = owner_client.post("/api/owner/devices", json={"name": "Quầy", "floor": "floor1"})
     assert r.status_code == 201
     owner_client.device_id = r.json()["id"]
+    owner_client._db_path = owner_client.app.state.settings.db_path
     return owner_client
 
 

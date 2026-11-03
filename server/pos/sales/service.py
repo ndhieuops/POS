@@ -1,5 +1,8 @@
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+import re
 
 from pos import auth, messages, money, timeutil
 from pos.models import Device, Product, Sale, SaleLine
@@ -19,15 +22,6 @@ def pending_sale(db: Session, device_id: str) -> Sale | None:
 
 def lines_of(db: Session, sale_id: int) -> list[SaleLine]:
     return list(db.scalars(select(SaleLine).where(SaleLine.sale_id == sale_id).order_by(SaleLine.id)))
-
-
-def qr_payload(db: Session, sale: Sale) -> str | None:
-    if sale.status != "awaiting_payment" or not sale.payment_ref:
-        return None
-    bin_, acc = auth.get_setting(db, "bank_bin"), auth.get_setting(db, "bank_account_no")
-    if not bin_ or not acc:
-        raise SaleError(409, messages.BANK_NOT_CONFIGURED)
-    return build_vietqr_payload(bin_, acc, sale.total, sale.payment_ref)
 
 
 def create_sale(db: Session, device_id: str, service: str, items: list) -> Sale:
@@ -60,7 +54,11 @@ def create_sale(db: Session, device_id: str, service: str, items: list) -> Sale:
         db.add(SaleLine(sale_id=sale.id, product_id=i.product_id, name=name, unit=unit,
                         qty_milli=i.qty_milli, unit_price=price, line_total=lt, note=i.note))
     sale.total = total
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise SaleError(409, messages.PENDING_PAYMENT, pending_sale(db, device_id))
     return sale
 
 
@@ -69,6 +67,13 @@ def get_sale(db: Session, sale_id: int) -> Sale:
     if sale is None:
         raise SaleError(404, messages.SALE_NOT_FOUND)
     return sale
+
+
+def _bank(db: Session) -> tuple[str, str]:
+    bin_, acc = auth.get_setting(db, "bank_bin"), auth.get_setting(db, "bank_account_no")
+    if not (bin_ and re.fullmatch(r"\d{6}", bin_) and acc and re.fullmatch(r"\d{1,19}", acc)):
+        raise SaleError(409, messages.BANK_NOT_CONFIGURED)
+    return bin_, acc
 
 
 def request_qr(db: Session, sale_id: int) -> Sale:
@@ -82,9 +87,16 @@ def request_qr(db: Session, sale_id: int) -> Sale:
     pend = pending_sale(db, sale.device_id)
     if pend is not None:
         raise SaleError(409, messages.PENDING_PAYMENT, pend)
+    bin_, acc = _bank(db)  # validate before any state change
+    ref = payment_ref(sale.id)
     sale.status = "awaiting_payment"
-    sale.payment_ref = payment_ref(sale.id)
-    db.commit()
+    sale.payment_ref = ref
+    sale.qr_payload = build_vietqr_payload(bin_, acc, sale.total, ref)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise SaleError(409, messages.PENDING_PAYMENT, pending_sale(db, sale.device_id))
     return sale
 
 
@@ -92,6 +104,11 @@ def confirm(db: Session, sale_id: int, method: str) -> Sale:
     sale = get_sale(db, sale_id)
     if sale.status == "paid":
         return sale
+    other = db.scalars(select(Sale).where(
+        Sale.device_id == sale.device_id, Sale.status == "awaiting_payment", Sale.id != sale_id
+    )).first()
+    if other is not None:
+        raise SaleError(409, messages.PENDING_PAYMENT, other)
     if method == "bank_qr" and sale.status != "awaiting_payment":
         raise SaleError(409, messages.QR_NOT_REQUESTED)
     ts = timeutil.now()

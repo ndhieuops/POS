@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 from typing import Literal
 
 from sqlalchemy import (
-    Boolean, Date, DateTime, ForeignKey, Integer, String, TypeDecorator, UniqueConstraint,
+    Boolean, Date, DateTime, ForeignKey, Index, Integer, String, TypeDecorator, UniqueConstraint, text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -72,6 +72,10 @@ class StockReceipt(Base):
 
 class Sale(Base):
     __tablename__ = "sales"
+    __table_args__ = (
+        Index("ix_sales_one_pending_per_device", "device_id", unique=True,
+              sqlite_where=text("status = 'awaiting_payment'")),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
     device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"))
     service: Mapped[Literal["grocery", "tea", "pub"]] = mapped_column(String)
@@ -80,6 +84,7 @@ class Sale(Base):
     payment_method: Mapped[Literal["bank_qr", "cash"] | None] = mapped_column(String)
     confirmed_via: Mapped[Literal["manual", "auto", "cash"] | None] = mapped_column(String)
     payment_ref: Mapped[str | None] = mapped_column(String, unique=True)
+    qr_payload: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=lambda: timeutil.now())
     paid_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     business_day: Mapped[date | None] = mapped_column(Date)
