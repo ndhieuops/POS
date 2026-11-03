@@ -10,6 +10,7 @@ from pos.db import make_engine, make_sessionmaker, run_migrations
 from pos.catalog.routes import router as catalog_router
 from pos.devices.routes import router as devices_router
 from pos.setup.routes import router as setup_router
+from pos.receiving.routes import router as receiving_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -37,4 +38,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(setup_router)
     app.include_router(devices_router)
     app.include_router(catalog_router)
+    app.include_router(receiving_router)
     return app
