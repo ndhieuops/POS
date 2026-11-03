@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { api, ApiError, type ProductOut, type SaleLineIn, type SaleOut } from "../api/client"
 import { CustomPriceDialog } from "../components/CustomPriceDialog"
+import { OwnerPinDialog } from "../components/OwnerPinDialog"
 import { QrPaymentModal } from "../components/QrPaymentModal"
 import { useBarcodeScanner } from "../hooks/useBarcodeScanner"
 import { vi } from "../i18n/vi"
@@ -24,7 +25,8 @@ function pendingFrom(e: unknown): SaleOut | null {
   return null
 }
 
-export function GroceryCheckout({ deviceId }: { deviceId: string }) {
+export function GroceryCheckout({ deviceId, onReceive }: { deviceId: string; onReceive?: () => void }) {
+  const [pinOpen, setPinOpen] = useState(false)
   const [cart, setCart] = useState<CartLine[]>([])
   const [modalSale, setModalSale] = useState<SaleOut | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -87,7 +89,7 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
     }
   }, [addProduct])
 
-  const dialogOpen = modalSale !== null || customOpen
+  const dialogOpen = modalSale !== null || customOpen || pinOpen
   const locked = dialogOpen || busy || !pendingReady
   useBarcodeScanner(handleCode, !locked)
 
@@ -208,6 +210,11 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
         <button type="button" className="btn btn-secondary btn-big" disabled={empty || locked} onClick={() => void pay("cash")}>
           {vi.payCash}
         </button>
+        {onReceive ? (
+          <button type="button" className="btn btn-secondary" disabled={locked} onClick={() => setPinOpen(true)}>
+            {vi.receiveGoods}
+          </button>
+        ) : null}
         {busy ? <div className="gc-wait">{vi.pleaseWait}</div> : null}
       </aside>
       {customOpen ? (
@@ -221,6 +228,12 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
             setCustomOpen(false)
             setNotFound(false)
           }}
+        />
+      ) : null}
+      {pinOpen ? (
+        <OwnerPinDialog
+          onClose={() => setPinOpen(false)}
+          onSuccess={() => { setPinOpen(false); onReceive?.() }}
         />
       ) : null}
       {modalSale ? (

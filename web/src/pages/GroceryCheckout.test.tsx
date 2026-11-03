@@ -10,7 +10,7 @@ vitest.mock("../api/client", async (orig) => {
     ...m,
     api: {
       lookupBarcode: vitest.fn(), createSale: vitest.fn(), requestQr: vitest.fn(),
-      confirm: vitest.fn(), pendingSale: vitest.fn(),
+      confirm: vitest.fn(), pendingSale: vitest.fn(), ownerLogin: vitest.fn(),
     },
   }
 })
@@ -264,5 +264,19 @@ describe("GroceryCheckout", () => {
     expect(screen.getByTestId("qty").textContent).toBe("1")
     fireEvent.click(screen.getByRole("button", { name: vi.remove }))
     expect(screen.getByText(vi.emptyCart)).toBeTruthy()
+  })
+
+  it("Nhập hàng opens PIN dialog, locks scanner, then navigates on success", async () => {
+    A.ownerLogin.mockResolvedValue(null)
+    const onReceive = vitest.fn()
+    render(<GroceryCheckout deviceId="dev1" onReceive={onReceive} />)
+    await act(async () => {})
+    fireEvent.click(screen.getByRole("button", { name: vi.receiveGoods }))
+    expect(screen.getByRole("dialog")).toBeTruthy()
+    scan(milk.barcode)
+    expect(A.lookupBarcode).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByLabelText(vi.ownerPin), { target: { value: "1234" } })
+    fireEvent.click(screen.getByRole("button", { name: vi.confirm }))
+    await waitFor(() => expect(onReceive).toHaveBeenCalled())
   })
 })

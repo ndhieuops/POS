@@ -1,0 +1,15 @@
+.form-page { max-width: 560px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 14px; }
+.form-page h1, .form-page h2 { margin: 0; }
+.form-label { display: flex; flex-direction: column; gap: 6px; font-size: 18px; font-weight: 600; color: var(--muted); }
+.form-input { font-size: 24px; min-height: 56px; padding: 0 14px; border: 2px solid var(--border); border-radius: 12px; color: var(--text); background: var(--surface); }
+.form-error { color: var(--danger); font-size: 20px; font-weight: 600; }
+.form-ok { color: var(--primary); font-size: 20px; font-weight: 700; }
+.form-hint { color: var(--muted); font-size: 16px; margin: 0; }
+.form-card { background: var(--surface); border: 2px solid var(--border); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.form-meta { color: var(--muted); font-size: 18px; margin: 0; }
+.seg { display: flex; gap: 10px; }
+.seg .btn { flex: 1; }
+.seg .btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.picker { display: flex; flex-direction: column; gap: 16px; }
+.picker .btn { min-height: 120px; font-size: 32px; }
+.picker .btn[aria-current="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
