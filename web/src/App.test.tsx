@@ -76,14 +76,14 @@ describe("App routing", () => {
     A.setupStatus.mockResolvedValue({ configured: true })
     A.getDevice.mockResolvedValue({ id: "d1", name: "Quầy", floor: "floor1" })
     localStorage.setItem("pos_device_id", "d1")
-    await open("/receive")
     vitest.useFakeTimers()
     try {
+      await open("/receive")
       act(() => { vitest.advanceTimersByTime(300000) })
-      act(() => { vitest.advanceTimersByTime(10) })
+      await act(async () => {})
+      await act(async () => { vitest.advanceTimersByTime(10) })
+      expect(A.ownerLogout).toHaveBeenCalled()
     } finally { vitest.useRealTimers() }
-    await act(async () => {})
-    expect(A.ownerLogout).toHaveBeenCalled()
     expect(screen.getByRole("status").textContent).toBe(vi.sessionExpired)
   })
 })
