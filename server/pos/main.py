@@ -1,8 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from pos import messages
 from pos.config import Settings
@@ -41,4 +42,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(catalog_router)
     app.include_router(receiving_router)
     app.include_router(sales_router)
+
+    dist = Path(settings.web_dist).resolve()
+    index = dist / "index.html"
+    if index.is_file():
+        # Registered last: real /api routes win; unknown /api paths stay JSON 404.
+        @app.get("/{path:path}", include_in_schema=False)
+        def spa(path: str):
+            if path == "api" or path.startswith("api/"):
+                raise HTTPException(status_code=404, detail="Not Found")
+            f = (dist / path).resolve()
+            if path and f.is_file() and f.is_relative_to(dist):
+                return FileResponse(f)
+            return FileResponse(index)
+
     return app

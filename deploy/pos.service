@@ -1,0 +1,14 @@
+[Unit]
+Description=POS home server
+After=network.target
+
+[Service]
+User=pos
+WorkingDirectory=/opt/pos/server
+Environment=POS_DB_PATH=/var/lib/pos/pos.db POS_BACKUP_DIR=/var/backups/pos
+ExecStart=/opt/pos/server/.venv/bin/uvicorn pos.main:create_app --factory --host 0.0.0.0 --port 8080
+Restart=always
+MemoryMax=600M
+
+[Install]
+WantedBy=multi-user.target

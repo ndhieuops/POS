@@ -1,0 +1,8 @@
+[Unit]
+Description=POS nightly database backup
+
+[Service]
+Type=oneshot
+User=pos
+Environment=POS_DB_PATH=/var/lib/pos/pos.db POS_BACKUP_DIR=/var/backups/pos
+ExecStart=/bin/bash /opt/pos/deploy/backup.sh
