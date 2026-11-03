@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from pos import messages
 from pos.config import Settings
 from pos.db import make_engine, make_sessionmaker, run_migrations
+from pos.devices.routes import router as devices_router
 from pos.setup.routes import router as setup_router
 
 
@@ -33,4 +34,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"ok": True}
 
     app.include_router(setup_router)
+    app.include_router(devices_router)
     return app
