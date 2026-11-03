@@ -1,7 +1,7 @@
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from pos import auth, messages, timeutil
@@ -24,7 +24,7 @@ class SetupIn(BaseModel):
 
 class LoginIn(BaseModel):
     pin: str
-    device_id: str
+    device_id: str = Field(pattern=r"^[A-Za-z0-9-]{1,64}$")
 
 
 class SettingsIn(BaseModel):
@@ -55,7 +55,7 @@ def do_setup(body: SetupIn, db: Session = Depends(get_db)):
 
 @router.post("/owner/login")
 def login(body: LoginIn, response: Response, db: Session = Depends(get_db)):
-    if auth.lock_state(db, body.device_id):
+    if auth.lock_state(db, body.device_id) or auth.global_lock_state(db):
         raise HTTPException(429, messages.PIN_LOCKED)
     stored = auth.get_setting(db, "owner_pin_hash")
     ok = stored is not None and auth.verify_pin(body.pin, stored)

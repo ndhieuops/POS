@@ -1,7 +1,10 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
+from pos import messages
 from pos.config import Settings
 from pos.db import make_engine, make_sessionmaker, run_migrations
 from pos.setup.routes import router as setup_router
@@ -20,6 +23,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="POS", lifespan=lifespan)
     app.state.settings = settings
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, exc: RequestValidationError):
+        return JSONResponse(status_code=422, content={"detail": messages.INVALID_INPUT})
 
     @app.get("/api/health")
     def health():

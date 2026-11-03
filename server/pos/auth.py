@@ -15,6 +15,7 @@ COOKIE = "owner_session"
 IDLE = timedelta(minutes=5)
 LOCK_WINDOW = timedelta(minutes=5)
 MAX_FAILS = 5
+GLOBAL_MAX_FAILS = 10
 
 
 def get_setting(db: Session, key: str) -> str | None:
@@ -82,12 +83,27 @@ def lock_state(db: Session, device_id: str) -> bool:
     return False
 
 
+def global_lock_state(db: Session) -> bool:
+    """True if 10 failed logins (any device) fell within 5 min; locked until 5 min after the latest."""
+    now = timeutil.now()
+    fails = db.scalars(
+        select(PinAttempt)
+        .where(PinAttempt.ok.is_(False))
+        .order_by(PinAttempt.at.desc(), PinAttempt.id.desc())
+        .limit(GLOBAL_MAX_FAILS)
+    ).all()
+    if len(fails) < GLOBAL_MAX_FAILS:
+        return False
+    newest, oldest = fails[0].at, fails[-1].at
+    return newest - oldest <= LOCK_WINDOW and now < newest + LOCK_WINDOW
+
+
 def require_owner(request: Request, response: Response, db: Session = Depends(get_db)) -> None:
     token = request.cookies.get(COOKIE)
     try:
         ts_s, device_id, sig = (token or "").split(".")
         payload = f"{ts_s}.{device_id}"
-        if not hmac.compare_digest(sig, _sig(session_secret(db), payload)):
+        if not hmac.compare_digest(sig.encode(), _sig(session_secret(db), payload).encode()):
             raise ValueError
         age = timeutil.now().timestamp() - int(ts_s)
         if age < 0 or age > IDLE.total_seconds():

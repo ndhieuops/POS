@@ -99,3 +99,52 @@ def test_errors_are_vietnamese(configured_client):
 
 def test_login_before_setup(client):
     assert client.post("/api/owner/login", json=LOGIN).status_code == 401
+
+
+def test_global_lockout_across_devices(configured_client):
+    c = configured_client
+    for i in range(10):
+        r = c.post("/api/owner/login", json={"pin": "0000", "device_id": f"dev-{i}"})
+        assert r.status_code == 401
+    r = c.post("/api/owner/login", json={"pin": "2468", "device_id": "dev-new"})
+    assert r.status_code == 429
+    assert r.json()["detail"] == messages.PIN_LOCKED
+
+
+def test_device_id_with_dot_rejected(configured_client):
+    r = configured_client.post("/api/owner/login", json={"pin": "2468", "device_id": "a.b"})
+    assert r.status_code == 422
+
+
+def test_validation_error_is_vietnamese(client):
+    body = {k: v for k, v in SETUP.items() if k != "shop_name"}
+    r = client.post("/api/setup", json=body)
+    assert r.status_code == 422
+    assert r.json()["detail"] == messages.INVALID_INPUT == "Dữ liệu không hợp lệ"
+
+
+def test_non_ascii_signature_is_401(configured_client):
+    import pytest
+    from fastapi import HTTPException, Response
+    from starlette.requests import Request
+
+    from pos import auth
+
+    cookie = "owner_session=1.d1.\u00e9".encode("utf-8")
+    req = Request({"type": "http", "headers": [(b"cookie", cookie)]})
+    with configured_client.app.state.sessionmaker() as db:
+        with pytest.raises(HTTPException) as e:
+            auth.require_owner(req, Response(), db)
+    assert e.value.status_code == 401
+
+
+def test_model_defaults_use_patched_now(client, set_now):
+    from pos.models import Device
+
+    set_now(T0)
+    with client.app.state.sessionmaker() as db:
+        d = Device(id="dev-x", name="x", floor="floor1")
+        db.add(d)
+        db.commit()
+        db.refresh(d)
+        assert d.created_at == T0

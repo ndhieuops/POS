@@ -43,7 +43,7 @@ class Device(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String)
     floor: Mapped[Literal["floor1", "floor4"]] = mapped_column(String)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=timeutil.now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=lambda: timeutil.now())
 
 
 class Product(Base):
@@ -66,7 +66,7 @@ class StockReceipt(Base):
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
     qty_milli: Mapped[int] = mapped_column(Integer)
     unit_cost: Mapped[int] = mapped_column(Integer)
-    received_at: Mapped[datetime] = mapped_column(UTCDateTime, default=timeutil.now)
+    received_at: Mapped[datetime] = mapped_column(UTCDateTime, default=lambda: timeutil.now())
 
 
 class Sale(Base):
@@ -79,7 +79,7 @@ class Sale(Base):
     payment_method: Mapped[Literal["bank_qr", "cash"] | None] = mapped_column(String)
     confirmed_via: Mapped[Literal["manual", "auto", "cash"] | None] = mapped_column(String)
     payment_ref: Mapped[str | None] = mapped_column(String, unique=True)
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=timeutil.now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=lambda: timeutil.now())
     paid_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     business_day: Mapped[date | None] = mapped_column(Date)
 
@@ -102,5 +102,5 @@ class PinAttempt(Base):
     __tablename__ = "pin_attempts"
     id: Mapped[int] = mapped_column(primary_key=True)
     device_id: Mapped[str] = mapped_column(String, index=True)
-    at: Mapped[datetime] = mapped_column(UTCDateTime, default=timeutil.now)
+    at: Mapped[datetime] = mapped_column(UTCDateTime, default=lambda: timeutil.now())
     ok: Mapped[bool] = mapped_column(Boolean)
