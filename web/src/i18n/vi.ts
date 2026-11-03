@@ -38,5 +38,6 @@ export const vi = {
   comingSoon: "Sắp có",
   emptyCart: "Giỏ hàng trống",
   remove: "Xóa",
+  serverError: "Máy chủ gặp lỗi, vui lòng thử lại",
   networkError: "Mất kết nối với máy chủ",
 } as const

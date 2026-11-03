@@ -2,20 +2,20 @@ import { vi } from "../i18n/vi"
 
 export type Floor = "floor1" | "floor4"
 export type Service = "grocery" | "tea" | "pub"
-export type Location = string
+export type Location = "grocery" | "floor4"
 
 export interface ProductOut {
   id: number
-  barcode: string
+  barcode: string | null
   name: string
   unit: string
   sell_price: number
   track_stock: boolean
-  stock_qty_milli: number | null
+  stock_qty_milli: number
 }
 export interface ProductOwnerOut extends ProductOut {
   last_cost: number | null
-  location: string
+  location: Location
   active: boolean
 }
 export interface Device { id: string; name: string; floor: Floor }
@@ -27,11 +27,28 @@ export interface SaleLineIn {
   unit_price: number
   note?: string | null
 }
+export interface ProductIn {
+  barcode?: string | null
+  name: string
+  unit: string
+  sell_price: number
+  location: Location
+  track_stock?: boolean
+}
+export interface LineOut {
+  product_id: number | null
+  name: string
+  unit: string
+  qty_milli: number
+  unit_price: number
+  line_total: number
+  note: string | null
+}
 export interface SaleOut {
   id: number
   status: string
   total: number
-  lines: Array<Record<string, unknown>>
+  lines: LineOut[]
   payment_ref?: string | null
   qr_payload?: string | null
   payment_method?: string | null
@@ -48,7 +65,7 @@ export interface SetupBody {
 }
 export interface ReceiveBody {
   barcode: string
-  location: string
+  location: Location
   qty: number
   unit_cost: number
   name?: string
@@ -64,8 +81,8 @@ export interface ReceiveOut {
 export class ApiError extends Error {
   status: number
   detail: string
-  body: any
-  constructor(status: number, detail: string, body: any = null) {
+  body: unknown
+  constructor(status: number, detail: string, body: unknown = null) {
     super(detail)
     this.name = "ApiError"
     this.status = status
@@ -87,14 +104,15 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new ApiError(0, vi.networkError, null)
   }
   if (res.status === 204) return null as T
-  let parsed: any = null
+  let parsed: unknown = null
   try {
     parsed = await res.json()
   } catch {
     parsed = null
   }
   if (!res.ok) {
-    const detail = typeof parsed?.detail === "string" ? parsed.detail : vi.networkError
+    const d = (parsed as { detail?: unknown } | null)?.detail
+    const detail = typeof d === "string" ? d : vi.serverError
     throw new ApiError(res.status, detail, parsed)
   }
   return parsed as T
@@ -115,7 +133,7 @@ export const api = {
     request<ProductOut>("GET", `/products/by-barcode/${enc(code)}?location=${enc(location)}`),
   ownerLookupBarcode: (code: string, location: Location) =>
     request<ProductOwnerOut>("GET", `/owner/products/by-barcode/${enc(code)}?location=${enc(location)}`),
-  createProduct: (body: Record<string, unknown>) =>
+  createProduct: (body: ProductIn) =>
     request<ProductOwnerOut>("POST", "/owner/products", body),
   receive: (body: ReceiveBody) => request<ReceiveOut>("POST", "/owner/receipts", body),
   createSale: (body: { device_id: string; service: Service; lines: SaleLineIn[] }) =>
