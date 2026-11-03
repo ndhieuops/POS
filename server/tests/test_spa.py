@@ -45,7 +45,7 @@ def test_api_still_works(spa_client):
 def test_path_traversal_not_served(spa_client, tmp_path):
     (tmp_path / "secret.txt").write_text("secret")
     r = spa_client.get("/..%2fsecret.txt")
-    assert "secret" not in r.text or r.text.startswith("<!doctype")
+    assert "secret" not in r.text
 
 
 def test_missing_dist_is_ok(tmp_path):

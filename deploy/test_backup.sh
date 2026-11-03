@@ -18,4 +18,11 @@ TODAY="$POS_BACKUP_DIR/pos-$(date +%F).db"
 [ -e "$KEEP" ] || { echo "FAIL: recent backup deleted"; exit 1; }
 v="$(python3 -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("select x from t").fetchone()[0])' "$TODAY")"
 [ "$v" = 42 ] || { echo "FAIL: backup content wrong"; exit 1; }
+
+# Missing DB: non-zero exit, nothing pruned, no empty backup written.
+touch -d '31 days ago' "$OLD"
+rm -f "$TODAY"
+if POS_DB_PATH="$T/nope.db" bash "$HERE/backup.sh" 2>/dev/null; then echo "FAIL: missing DB exited 0"; exit 1; fi
+[ -e "$OLD" ] || { echo "FAIL: pruned on failure"; exit 1; }
+[ ! -e "$TODAY" ] || { echo "FAIL: empty backup written"; exit 1; }
 echo "PASS test_backup"

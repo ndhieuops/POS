@@ -9,9 +9,23 @@ Tài liệu này dành cho chủ quán, không cần biết lập trình. Làm l
 - Máy quét mã vạch USB (loại cắm vào là dùng được, giống bàn phím).
 - Máy chủ cần có internet **chỉ khi cài đặt**. Khi bán hàng hằng ngày, phần mềm không cần internet.
 
-## 2. Cài đặt trên máy chủ
+## 2. Cài đặt
 
-1. Sao chép thư mục phần mềm (thư mục `POS`) vào máy chủ, ví dụ vào thư mục chính của bạn.
+### 2a. Tạo giao diện trên máy tính của bạn (làm một lần, hoặc khi có bản cập nhật)
+
+Máy chủ Ubuntu có sẵn Node quá cũ nên không tự tạo được giao diện. Hãy làm việc này trên máy tính của bạn (đã cài Node 22 trở lên; hoặc nhờ người cài đặt):
+
+```
+cd POS/web
+npm ci --legacy-peer-deps
+npm run build
+```
+
+Xong sẽ có thư mục `POS/web/dist`.
+
+### 2b. Cài trên máy chủ
+
+1. Sao chép **cả thư mục `POS`** (đã có `web/dist` ở bước 2a) vào máy chủ, ví dụ vào thư mục chính của bạn.
 2. Mở ứng dụng **Terminal** trên máy chủ.
 3. Gõ lần lượt hai dòng sau (nhấn Enter sau mỗi dòng):
 
@@ -20,7 +34,7 @@ Tài liệu này dành cho chủ quán, không cần biết lập trình. Làm l
    sudo bash deploy/install.sh
    ```
 
-4. Nhập mật khẩu máy chủ nếu được hỏi. Chờ vài phút cho đến khi thấy dòng **"Xong."**
+4. Nhập mật khẩu máy chủ nếu được hỏi. Chờ vài phút cho đến khi thấy dòng **"Xong."** Nếu báo thiếu `web/dist`, quay lại bước 2a.
 5. Muốn cài lại hoặc cập nhật: chạy lại đúng hai dòng trên. Dữ liệu bán hàng không bị mất.
 
 Sau khi cài xong, phần mềm tự chạy mỗi khi máy chủ bật lên.

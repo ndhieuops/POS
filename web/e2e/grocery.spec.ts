@@ -69,6 +69,10 @@ test("grocery flow: setup, receive, scan, QR, reload, confirm, stock 9", async (
   await page.reload()
   await expect(page.getByRole("dialog")).toBeVisible()
   await expect(page.getByRole("button", { name: vi.moneyReceived })).toBeVisible()
+  const qr2 = page.getByRole("dialog")
+  await expect(qr2.getByRole("button", { name: vi.cancel })).toHaveCount(0)
+  await expect(qr2.getByRole("img", { name: vi.qrCodeLabel }).locator("svg")).toBeVisible()
+  await expect(qr2.getByText("4.500đ").first()).toBeVisible()
 
   // Confirm payment: cart empty
   await page.getByRole("button", { name: vi.moneyReceived }).click()

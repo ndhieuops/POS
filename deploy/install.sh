@@ -5,28 +5,41 @@ set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "Hãy chạy bằng sudo: sudo bash deploy/install.sh"; exit 1; }
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=lib.sh
+. "$SRC/deploy/lib.sh"
 APP=/opt/pos
 DATA=/var/lib/pos
 BACKUPS=/var/backups/pos
 
+# Web build: use a ready web/dist, else build only with a new enough Node (apt Node 18 is too old for Vite 8).
+if [ ! -f "$SRC/web/dist/index.html" ]; then
+  if have_usable_node && command -v npm >/dev/null 2>&1; then
+    (cd "$SRC/web" && npm ci --legacy-peer-deps && npm run build)
+  else
+    echo "Lỗi: chưa có thư mục web/dist và máy này không có Node 20.19 trở lên để tạo ra nó." >&2
+    echo "Trên máy tính của bạn (đã cài Node 22), chạy: cd web && npm ci --legacy-peer-deps && npm run build" >&2
+    echo "Sau đó chép lại cả thư mục POS (có web/dist) sang máy chủ và chạy lại: sudo bash deploy/install.sh" >&2
+    exit 1
+  fi
+fi
+
 apt-get update
-apt-get install -y python3-venv nodejs npm
+apt-get install -y python3-venv
 
 id -u pos >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --shell /usr/sbin/nologin pos
 
 mkdir -p "$APP" "$DATA" "$BACKUPS"
 if [ "$SRC" != "$APP" ]; then
   tar -C "$SRC" --exclude=.git --exclude=node_modules --exclude=.venv --exclude=__pycache__ \
-      --exclude='*.db' --exclude=web/dist -cf - . | tar -C "$APP" -xf -
+      --exclude='*.db' -cf - . | tar -C "$APP" -xf -
 fi
 
 [ -x "$APP/server/.venv/bin/python" ] || python3 -m venv "$APP/server/.venv"
 "$APP/server/.venv/bin/python" -m pip install --upgrade pip
 "$APP/server/.venv/bin/python" -m pip install -e "$APP/server"
 
-(cd "$APP/web" && npm install --legacy-peer-deps && npm run build)
-
 chown -R pos:pos "$DATA" "$BACKUPS"
+chmod 750 "$DATA" "$BACKUPS"
 chown -R root:root "$APP"
 
 # Create / upgrade the database schema.
