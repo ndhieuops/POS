@@ -1,7 +1,3 @@
-:root {
-  --surface: #fff; --border: #cbd5e1; --text: #0f172a; --muted: #475569;
-  --primary: #15803d; --primary-text: #fff; --danger: #b91c1c; --surface-active: #e2e8f0;
-}
 .gc { display: grid; grid-template-columns: 1fr 340px; gap: 16px; padding: 16px; min-height: 100vh; color: var(--text); }
 .gc-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .gc-side { display: flex; flex-direction: column; gap: 12px; }
@@ -18,10 +14,4 @@
 .gc-total-label { font-size: 22px; color: var(--muted); }
 .gc-total { font-size: 56px; font-weight: 800; line-height: 1.1; }
 .gc-wait { font-size: 20px; color: var(--muted); }
-.btn { min-height: 56px; padding: 0 20px; font-size: 22px; font-weight: 700; border-radius: 12px; border: 2px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
-.btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
-.btn-danger { color: var(--danger); border-color: var(--danger); }
-.btn-sq { min-width: 56px; padding: 0; }
-.btn-big { min-height: 88px; }
 @media (max-width: 800px) { .gc { grid-template-columns: 1fr; } }

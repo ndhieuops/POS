@@ -49,4 +49,5 @@ export const vi = {
   pleaseWait: "Đang xử lý…",
   qrCodeLabel: "Mã QR chuyển khoản",
   cartTitle: "Giỏ hàng",
+  qrMissing: "Không tạo được mã QR — hãy nhận tiền mặt hoặc kiểm tra tài khoản ngân hàng",
 } as const

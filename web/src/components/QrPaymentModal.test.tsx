@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi as vitest } from "vitest"
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { api, ApiError, type SaleOut } from "../api/client"
 import { vi } from "../i18n/vi"
 import { QrPaymentModal } from "./QrPaymentModal"
@@ -24,6 +24,16 @@ describe("QrPaymentModal", () => {
     expect(Number(container.querySelector("svg")!.getAttribute("height"))).toBeGreaterThanOrEqual(240)
   })
 
+  it("focuses the primary button on mount", () => {
+    render(<QrPaymentModal sale={sale} onPaid={() => {}} />)
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: vi.moneyReceived }))
+  })
+
+  it("shows Vietnamese message when qr_payload is missing", () => {
+    render(<QrPaymentModal sale={{ ...sale, qr_payload: null }} onPaid={() => {}} />)
+    expect(screen.getByText(vi.qrMissing)).toBeTruthy()
+  })
+
   it("Escape and backdrop do nothing", () => {
     render(<QrPaymentModal sale={sale} onPaid={() => {}} />)
     fireEvent.keyDown(document, { key: "Escape" })
@@ -37,8 +47,8 @@ describe("QrPaymentModal", () => {
     const onPaid = vitest.fn()
     render(<QrPaymentModal sale={sale} onPaid={onPaid} />)
     const b = screen.getByRole("button", { name: vi.moneyReceived })
-    fireEvent.click(b)
-    fireEvent.click(b)
+    // both clicks land before React re-renders, so only the ref guard can stop the second
+    act(() => { b.click(); b.click() })
     await waitFor(() => expect(onPaid).toHaveBeenCalledTimes(1))
     expect(confirm).toHaveBeenCalledTimes(1)
     expect(confirm).toHaveBeenCalledWith(7, "bank_qr")

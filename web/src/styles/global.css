@@ -1,0 +1,16 @@
+:root {
+  --surface: #fff; --border: #cbd5e1; --text: #0f172a; --muted: #475569;
+  --primary: #15803d; --primary-text: #fff; --danger: #b91c1c; --surface-active: #e2e8f0;
+}
+body { background: #f1f5f9; color: var(--text); }
+.btn { min-height: 56px; padding: 0 20px; font-size: 22px; font-weight: 700; border-radius: 12px; border: 2px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.btn-secondary { background: var(--surface); border-color: var(--text); color: var(--text); }
+.btn-danger { color: var(--danger); border-color: var(--danger); }
+.btn-sq { min-width: 56px; padding: 0; }
+.btn-big { min-height: 88px; font-size: 28px; }
+.overlay {
+  position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.7);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}

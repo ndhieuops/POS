@@ -1,9 +1,8 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { api, ApiError, type SaleOut } from "../api/client"
 import { vi } from "../i18n/vi"
 import { formatVnd } from "../lib/money"
-import "./CustomPriceDialog.css"
 import "./QrPaymentModal.css"
 
 interface Props {
@@ -16,6 +15,9 @@ export function QrPaymentModal({ sale, onPaid }: Props) {
   const inFlight = useRef(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const primary = useRef<HTMLButtonElement>(null)
+  useEffect(() => { primary.current?.focus() }, [])
 
   async function confirm(method: "bank_qr" | "cash") {
     if (inFlight.current) return
@@ -40,10 +42,12 @@ export function QrPaymentModal({ sale, onPaid }: Props) {
           <div className="qr-code" role="img" aria-label={vi.qrCodeLabel}>
             <QRCodeSVG value={sale.qr_payload} size={260} marginSize={2} />
           </div>
-        ) : null}
+        ) : (
+          <div className="qr-error" role="alert">{vi.qrMissing}</div>
+        )}
         <div className="qr-waiting">{vi.waitingTransfer}</div>
         {error ? <div className="qr-error" role="alert">{error}</div> : null}
-        <button type="button" className="btn btn-primary btn-big" disabled={busy} onClick={() => confirm("bank_qr")}>
+        <button ref={primary} type="button" className="btn btn-primary btn-big" disabled={busy} onClick={() => confirm("bank_qr")}>
           {vi.moneyReceived}
         </button>
         <button type="button" className="btn btn-secondary btn-small" disabled={busy} onClick={() => confirm("cash")}>

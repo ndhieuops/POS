@@ -32,15 +32,31 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [manual, setManual] = useState("")
+  const [pendingReady, setPendingReady] = useState(false)
   const nextKey = useRef(1)
+  // Keys of cart lines sent with the sale shown in the modal; null when the modal is for a foreign (earlier) sale.
+  const sentKeys = useRef<Set<number> | null>(null)
   const busyRef = useRef(false)
 
   useEffect(() => {
     let alive = true
-    api.pendingSale(deviceId).then(
-      (s) => { if (alive && s) setModalSale(s) },
-      () => {},
-    )
+    const check = (retry: boolean) => {
+      api.pendingSale(deviceId).then(
+        (s) => {
+          if (!alive) return
+          setError(null)
+          if (s) { sentKeys.current = null; setModalSale(s) }
+          setPendingReady(true)
+        },
+        (e) => {
+          if (!alive) return
+          setError(errMsg(e))
+          if (retry) check(false)
+          else setPendingReady(true)
+        },
+      )
+    }
+    check(true)
     return () => { alive = false }
   }, [deviceId])
 
@@ -69,8 +85,27 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
     }
   }, [addProduct])
 
-  const locked = modalSale !== null || customOpen
+  const dialogOpen = modalSale !== null || customOpen
+  const locked = dialogOpen || busy || !pendingReady
   useBarcodeScanner(handleCode, !locked)
+
+  // While a dialog is open, Enter (e.g. a scanner's terminator) must not activate anything behind it.
+  useEffect(() => {
+    if (!dialogOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return
+      const inDialog = e.target instanceof Element && e.target.closest('[role="dialog"]') !== null
+      if (modalSale !== null || !inDialog) e.preventDefault()
+    }
+    window.addEventListener("keydown", onKey, true)
+    return () => window.removeEventListener("keydown", onKey, true)
+  }, [dialogOpen, modalSale])
+
+  function clearSent() {
+    const sent = sentKeys.current
+    sentKeys.current = null
+    if (sent) setCart((c) => c.filter((l) => !sent.has(l.key)))
+  }
 
   const total = cart.reduce((s, l) => s + Math.round((l.qty_milli * l.unit_price) / 1000), 0)
 
@@ -82,22 +117,23 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
   }
 
   async function pay(kind: "qr" | "cash") {
-    if (busyRef.current || cart.length === 0) return
+    if (busyRef.current || cart.length === 0 || !pendingReady) return
     busyRef.current = true
     setBusy(true)
     setError(null)
     try {
       const lines: SaleLineIn[] = cart.map(({ key: _k, ...l }) => l)
+      sentKeys.current = new Set(cart.map((l) => l.key))
       const sale = await api.createSale({ device_id: deviceId, service: "grocery", lines })
       if (kind === "qr") {
         setModalSale(await api.requestQr(sale.id))
       } else {
         await api.confirm(sale.id, "cash")
-        setCart([])
+        clearSent()
       }
     } catch (e) {
       const pending = pendingFrom(e)
-      if (pending) setModalSale(pending)
+      if (pending) { sentKeys.current = null; setModalSale(pending) }
       else setError(errMsg(e))
     } finally {
       busyRef.current = false
@@ -109,7 +145,7 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
 
   return (
     <div className="gc">
-      <main className="gc-main">
+      <main className="gc-main" inert={dialogOpen}>
         <form
           className="gc-scan"
           onSubmit={(e) => { e.preventDefault(); void handleCode(manual) }}
@@ -126,7 +162,7 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
         {notFound ? (
           <div className="gc-notfound" role="alert">
             <span>{vi.notFound}</span>
-            <button type="button" className="btn btn-secondary" onClick={() => { setCustomOpen(true) }}>
+            <button type="button" className="btn btn-secondary" disabled={locked} onClick={() => { setCustomOpen(true) }}>
               {vi.addCustomPrice}
             </button>
           </div>
@@ -140,26 +176,26 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
               <div className="gc-price">{formatVnd(l.unit_price)}</div>
               <div className="gc-qty">
                 <button type="button" className="btn btn-secondary btn-sq" aria-label={vi.decrease}
-                  disabled={l.qty_milli <= 1000} onClick={() => changeQty(l.key, -1000)}>−</button>
+                  disabled={locked || l.qty_milli <= 1000} onClick={() => changeQty(l.key, -1000)}>−</button>
                 <span className="gc-qty-n" data-testid="qty">{l.qty_milli / 1000}</span>
                 <button type="button" className="btn btn-secondary btn-sq" aria-label={vi.increase}
-                  onClick={() => changeQty(l.key, 1000)}>+</button>
+                  disabled={locked} onClick={() => changeQty(l.key, 1000)}>+</button>
               </div>
-              <button type="button" className="btn btn-danger" onClick={() => remove(l.key)}>{vi.remove}</button>
+              <button type="button" className="btn btn-danger" disabled={locked} onClick={() => remove(l.key)}>{vi.remove}</button>
             </li>
           ))}
         </ul>
-        <button type="button" className="btn btn-secondary" onClick={() => setCustomOpen(true)}>
+        <button type="button" className="btn btn-secondary" disabled={locked} onClick={() => setCustomOpen(true)}>
           {vi.customPrice}
         </button>
       </main>
-      <aside className="gc-side">
+      <aside className="gc-side" inert={dialogOpen}>
         <div className="gc-total-label">{vi.total}</div>
         <div className="gc-total">{formatVnd(total)}</div>
-        <button type="button" className="btn btn-primary btn-big" disabled={empty || busy} onClick={() => void pay("qr")}>
+        <button type="button" className="btn btn-primary btn-big" disabled={empty || locked} onClick={() => void pay("qr")}>
           {vi.payQr}
         </button>
-        <button type="button" className="btn btn-secondary btn-big" disabled={empty || busy} onClick={() => void pay("cash")}>
+        <button type="button" className="btn btn-secondary btn-big" disabled={empty || locked} onClick={() => void pay("cash")}>
           {vi.payCash}
         </button>
         {busy ? <div className="gc-wait">{vi.pleaseWait}</div> : null}
@@ -180,7 +216,7 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
       {modalSale ? (
         <QrPaymentModal
           sale={modalSale}
-          onPaid={() => { setModalSale(null); setCart([]) }}
+          onPaid={() => { setModalSale(null); clearSent() }}
         />
       ) : null}
     </div>

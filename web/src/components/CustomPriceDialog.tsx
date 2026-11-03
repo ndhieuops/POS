@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { vi } from "../i18n/vi"
 import { formatVnd, thousandsToDong } from "../lib/money"
 import { Keypad } from "./Keypad"
@@ -12,6 +12,8 @@ interface Props {
 export function CustomPriceDialog({ onAdd, onClose }: Props) {
   const [typed, setTyped] = useState("")
   const [note, setNote] = useState("")
+  const amountRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { amountRef.current?.focus() }, [])
   const amount = thousandsToDong(typed)
 
   return (
@@ -19,7 +21,7 @@ export function CustomPriceDialog({ onAdd, onClose }: Props) {
       <div className="cpd-card">
         <h2 className="cpd-title">{vi.customPrice}</h2>
         <div className="cpd-label">{vi.amountThousands}</div>
-        <div className="cpd-amount" data-testid="custom-amount">{formatVnd(amount)}</div>
+        <div className="cpd-amount" ref={amountRef} tabIndex={-1} data-testid="custom-amount">{formatVnd(amount)}</div>
         <Keypad
           onDigit={(d) => setTyped((t) => (t + d).replace(/^0+/, "").slice(0, 6))}
           onBackspace={() => setTyped((t) => t.slice(0, -1))}

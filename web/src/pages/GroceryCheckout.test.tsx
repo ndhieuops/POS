@@ -63,6 +63,13 @@ describe("GroceryCheckout", () => {
     fireEvent.click(screen.getByRole("button", { name: vi.addToCart }))
     expect(screen.getAllByText(vi.customPrice).length).toBeGreaterThan(0)
     expect(screen.getByTestId("cart-line").textContent).toContain("2.000đ")
+    A.createSale.mockResolvedValue({ ...qrSale, status: "open" })
+    A.confirm.mockResolvedValue({ ...qrSale, status: "paid" })
+    fireEvent.click(screen.getByRole("button", { name: vi.payCash }))
+    await waitFor(() => expect(A.createSale).toHaveBeenCalled())
+    expect(A.createSale.mock.calls[0][0].lines).toEqual([
+      { product_id: null, name: vi.customPrice, unit: "cái", qty_milli: 1000, unit_price: 2000, note: null },
+    ])
   })
 
   it("ignores scans while QR open", async () => {
@@ -106,6 +113,84 @@ describe("GroceryCheckout", () => {
     await screen.findByText("Sữa")
     fireEvent.click(screen.getByRole("button", { name: vi.payQr }))
     expect(await screen.findByRole("dialog")).toBeTruthy()
+    expect(screen.getByText("4.500đ", { selector: ".qr-total" })).toBeTruthy()
+  })
+
+  it("paying a foreign pending sale (409) keeps the current cart", async () => {
+    const old = { ...qrSale, id: 3, total: 37500 }
+    A.createSale.mockRejectedValue(new ApiError(409, "pending", { sale: old }))
+    A.confirm.mockResolvedValue({ ...old, status: "paid" })
+    await renderPage()
+    scan(milk.barcode)
+    await screen.findByText("Sữa")
+    fireEvent.click(screen.getByRole("button", { name: vi.payQr }))
+    expect(await screen.findByText("37.500đ", { selector: ".qr-total" })).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: vi.moneyReceived }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+    expect(A.confirm).toHaveBeenCalledWith(3, "bank_qr")
+    expect(screen.getByText("Sữa")).toBeTruthy()
+  })
+
+  it("ignores scans while createSale is in flight", async () => {
+    let release!: (s: SaleOut) => void
+    A.createSale.mockReturnValue(new Promise<SaleOut>((r) => { release = r }))
+    A.requestQr.mockResolvedValue(qrSale)
+    await renderPage()
+    scan(milk.barcode)
+    await screen.findByText("Sữa")
+    fireEvent.click(screen.getByRole("button", { name: vi.payQr }))
+    scan(milk.barcode)
+    await act(async () => {})
+    expect(A.lookupBarcode).toHaveBeenCalledTimes(1)
+    expect((screen.getByRole("button", { name: vi.increase }) as HTMLButtonElement).disabled).toBe(true)
+    await act(async () => { release({ ...qrSale, status: "open" }) })
+    expect(await screen.findByRole("dialog")).toBeTruthy()
+  })
+
+  it("background is inert and Enter does not re-run pay while QR open", async () => {
+    A.createSale.mockResolvedValue({ ...qrSale, status: "open" })
+    A.requestQr.mockResolvedValue(qrSale)
+    const { container } = render(<GroceryCheckout deviceId="dev1" />)
+    await act(async () => {})
+    scan(milk.barcode)
+    await screen.findByText("Sữa")
+    fireEvent.click(screen.getByRole("button", { name: vi.payQr }))
+    await screen.findByRole("dialog")
+    expect(container.querySelector(".gc-main")!.hasAttribute("inert")).toBe(true)
+    expect(container.querySelector(".gc-side")!.hasAttribute("inert")).toBe(true)
+    for (const c of "8934563138165") fireEvent.keyDown(window, { key: c })
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })
+    act(() => { document.activeElement!.dispatchEvent(enter) })
+    expect(enter.defaultPrevented).toBe(true)
+    await act(async () => {})
+    expect(A.createSale).toHaveBeenCalledTimes(1)
+    expect(A.lookupBarcode).toHaveBeenCalledTimes(1)
+    expect(A.confirm).not.toHaveBeenCalled()
+  })
+
+  it("locked until pending-sale check resolves", async () => {
+    let release!: (s: SaleOut | null) => void
+    A.pendingSale.mockReturnValue(new Promise((r) => { release = r }))
+    render(<GroceryCheckout deviceId="dev1" />)
+    scan(milk.barcode)
+    await act(async () => {})
+    expect(A.lookupBarcode).not.toHaveBeenCalled()
+    await act(async () => { release(null) })
+    scan(milk.barcode)
+    expect(await screen.findByText("Sữa")).toBeTruthy()
+  })
+
+  it("pending-sale error is retried once; failure shows detail", async () => {
+    A.pendingSale.mockRejectedValueOnce(new ApiError(500, "Lỗi A")).mockResolvedValueOnce(qrSale)
+    await renderPage()
+    expect(await screen.findByRole("dialog")).toBeTruthy()
+    expect(A.pendingSale).toHaveBeenCalledTimes(2)
+    cleanup()
+    A.pendingSale.mockReset()
+    A.pendingSale.mockRejectedValue(new ApiError(500, "Lỗi B"))
+    await renderPage()
+    expect(await screen.findByText("Lỗi B")).toBeTruthy()
+    expect(A.pendingSale).toHaveBeenCalledTimes(2)
   })
 
   it("bank not configured keeps cart and shows detail", async () => {

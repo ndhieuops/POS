@@ -17,6 +17,11 @@ describe("CustomPriceDialog", () => {
     expect(onAdd).toHaveBeenCalledWith({ name: "rau", unitPrice: 50000, note: "rau" })
   })
 
+  it("focuses the amount area on mount", () => {
+    render(<CustomPriceDialog onAdd={() => {}} onClose={() => {}} />)
+    expect(document.activeElement).toBe(screen.getByTestId("custom-amount"))
+  })
+
   it("Add disabled at zero; backspace works", () => {
     render(<CustomPriceDialog onAdd={() => {}} onClose={() => {}} />)
     expect((screen.getByRole("button", { name: vi.addToCart }) as HTMLButtonElement).disabled).toBe(true)
