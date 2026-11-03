@@ -14,6 +14,9 @@ async function ownerPin(page: import("@playwright/test").Page) {
 test("grocery flow: setup, receive, scan, QR, reload, confirm, stock 9", async ({ page }) => {
   // First-run setup
   await page.goto("/")
+  // Served from a LAN IP over plain HTTP: not a secure context, like a real floor screen.
+  const host = process.env.POS_E2E_HOST ?? "127.0.0.1"
+  if (host !== "127.0.0.1") expect(await page.evaluate(() => window.isSecureContext)).toBe(false)
   await expect(page).toHaveURL(/\/setup$/)
   await page.getByLabel(vi.shopName).fill("Tạp hóa Test")
   await page.getByLabel(vi.ownerPinNew).fill(PIN)
