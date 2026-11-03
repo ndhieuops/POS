@@ -73,7 +73,9 @@ export const vi = {
   locationGrocery: "Tạp hóa",
   locationFloor4: "Tầng 4",
   received: "Đã nhập kho",
-  invalidNumber: "Vui lòng nhập số hợp lệ",
-  pinWrong: "Không đăng nhập được",
+  invalidAmount: "Số tiền không hợp lệ (ví dụ 3.600)",
+  sessionExpired: "Hết phiên chủ quán, vui lòng nhập lại mã PIN",
+  defaultUnit: "cái",
+  sellPricePlaceholder: "18.000",
   comingSoonBody: "Tính năng này sẽ có sau",
 } as const

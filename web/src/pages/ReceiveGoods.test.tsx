@@ -6,7 +6,7 @@ import { ReceiveGoods } from "./ReceiveGoods"
 
 vitest.mock("../api/client", async (orig) => {
   const m = await orig<typeof import("../api/client")>()
-  return { ...m, api: { ownerLookupBarcode: vitest.fn(), receive: vitest.fn() } }
+  return { ...m, api: { ownerLookupBarcode: vitest.fn(), receive: vitest.fn(), ownerLogout: vitest.fn() } }
 })
 const A = api as unknown as Record<string, ReturnType<typeof vitest.fn>>
 
@@ -19,6 +19,7 @@ const onExpired = vitest.fn()
 beforeEach(() => {
   Object.values(A).forEach((f) => f.mockReset())
   onExpired.mockReset()
+  A.ownerLogout.mockResolvedValue(null)
 })
 afterEach(cleanup)
 
@@ -36,7 +37,7 @@ describe("ReceiveGoods", () => {
     await lookup(noodle.barcode)
     expect(await screen.findByText("Mì Hảo Hảo")).toBeTruthy()
     expect(field(vi.costPrice).value).toBe("3.600")
-    expect(screen.getByTestId("stock").textContent).toContain("12")
+    expect(screen.getByTestId("stock").textContent).toContain("Tồn kho: 12")
     expect(A.ownerLookupBarcode).toHaveBeenCalledWith(noodle.barcode, "grocery")
     expect(screen.queryByLabelText(vi.productName)).toBeNull()
   })
@@ -90,5 +91,56 @@ describe("ReceiveGoods", () => {
     A.ownerLookupBarcode.mockRejectedValue(new ApiError(401, "Phiên hết hạn"))
     await lookup(noodle.barcode)
     await waitFor(() => expect(onExpired).toHaveBeenCalled())
+  })
+
+  it("floor4 device defaults location to floor4", async () => {
+    A.ownerLookupBarcode.mockResolvedValue(noodle)
+    render(<ReceiveGoods floor="floor4" onExpired={onExpired} onBack={() => {}} />)
+    fireEvent.change(screen.getByLabelText(vi.barcodeInput), { target: { value: "8934563138165" } })
+    fireEvent.submit(screen.getByLabelText(vi.barcodeInput).closest("form")!)
+    await act(async () => {})
+    expect(A.ownerLookupBarcode).toHaveBeenCalledWith("8934563138165", "floor4")
+  })
+
+  it("logs out on unmount", async () => {
+    const { unmount } = render(<ReceiveGoods floor="floor1" onExpired={onExpired} onBack={() => {}} />)
+    unmount()
+    await waitFor(() => expect(A.ownerLogout).toHaveBeenCalled())
+  })
+
+  it("idle 5 minutes calls onExpired", async () => {
+    vitest.useFakeTimers()
+    try {
+      render(<ReceiveGoods floor="floor1" onExpired={onExpired} onBack={() => {}} />)
+      act(() => { vitest.advanceTimersByTime(300000) })
+      expect(onExpired).toHaveBeenCalled()
+    } finally { vitest.useRealTimers() }
+  })
+
+  it("rejects malformed amounts with Vietnamese message", async () => {
+    A.ownerLookupBarcode.mockResolvedValue(noodle)
+    await lookup(noodle.barcode)
+    await screen.findByText("Mì Hảo Hảo")
+    fireEvent.change(field(vi.quantity), { target: { value: "3" } })
+    fireEvent.change(field(vi.costPrice), { target: { value: "3.6" } })
+    expect(screen.getByText(vi.invalidAmount)).toBeTruthy()
+    expect((screen.getByRole("button", { name: /^✓/ }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("ignores a stale lookup response", async () => {
+    let resolveFirst!: (p: unknown) => void
+    A.ownerLookupBarcode
+      .mockImplementationOnce(() => new Promise((r) => { resolveFirst = r }))
+      .mockResolvedValueOnce({ ...noodle, id: 2, name: "Bánh" })
+    render(<ReceiveGoods floor="floor1" onExpired={onExpired} onBack={() => {}} />)
+    const form = screen.getByLabelText(vi.barcodeInput).closest("form")!
+    fireEvent.change(screen.getByLabelText(vi.barcodeInput), { target: { value: "111111" } })
+    fireEvent.submit(form)
+    fireEvent.change(screen.getByLabelText(vi.barcodeInput), { target: { value: "222222" } })
+    fireEvent.submit(form)
+    await act(async () => {})
+    await act(async () => { resolveFirst(noodle) })
+    expect(screen.getByText("Bánh")).toBeTruthy()
+    expect(screen.queryByText("Mì Hảo Hảo")).toBeNull()
   })
 })

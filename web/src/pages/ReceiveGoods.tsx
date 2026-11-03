@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { api, ApiError, type Floor, type Location, type ProductOwnerOut } from "../api/client"
 import { useBarcodeScanner } from "../hooks/useBarcodeScanner"
+import { useIdleTimeout } from "../hooks/useIdleTimeout"
 import { vi } from "../i18n/vi"
 import { formatVnd } from "../lib/money"
 import { parseDong } from "../lib/parseDong"
@@ -13,6 +14,7 @@ interface Props {
 }
 
 type Found = { kind: "known"; product: ProductOwnerOut } | { kind: "new" }
+const IDLE_MS = 300000
 const dots = (n: number) => formatVnd(n).replace("đ", "")
 
 export function ReceiveGoods({ floor, onExpired, onBack }: Props) {
@@ -28,6 +30,18 @@ export function ReceiveGoods({ floor, onExpired, onBack }: Props) {
   const [ok, setOk] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
+  const lookupId = useRef(0)
+  const logoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useIdleTimeout(IDLE_MS, onExpired)
+
+  // Owner session must not outlive this screen. Deferred so a StrictMode remount cancels it.
+  useEffect(() => {
+    if (logoutTimer.current) { clearTimeout(logoutTimer.current); logoutTimer.current = null }
+    return () => {
+      logoutTimer.current = setTimeout(() => { void api.ownerLogout().catch(() => {}) }, 0)
+    }
+  }, [])
 
   const fail = useCallback((e: unknown) => {
     if (e instanceof ApiError && e.status === 401) { onExpired(); return }
@@ -40,14 +54,17 @@ export function ReceiveGoods({ floor, onExpired, onBack }: Props) {
     if (!c) return
     setError(null)
     setOk(null)
+    const id = ++lookupId.current
     setCode(c)
     setFound(null)
     setQty("")
     try {
       const p = await api.ownerLookupBarcode(c, loc)
+      if (id !== lookupId.current) return
       setFound({ kind: "known", product: p })
       setCost(p.last_cost != null ? dots(p.last_cost) : "")
     } catch (e) {
+      if (id !== lookupId.current) return
       if (e instanceof ApiError && e.status === 404) {
         setFound({ kind: "new" })
         setName(""); setSell(""); setCost("")
@@ -72,6 +89,8 @@ export function ReceiveGoods({ floor, onExpired, onBack }: Props) {
     found !== null && qtyN !== null && qtyN >= 1 && costN !== null &&
     (found.kind === "known" || (name.trim() !== "" && sellN !== null && sellN > 0))
 
+  const amountInvalid = (cost.trim() !== "" && costN === null) || (found?.kind === "new" && sell.trim() !== "" && sellN === null)
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (busyRef.current || !code || !canSubmit || qtyN === null || costN === null) return
@@ -81,7 +100,7 @@ export function ReceiveGoods({ floor, onExpired, onBack }: Props) {
     try {
       const body = found!.kind === "known"
         ? { barcode: code, location, qty: qtyN, unit_cost: costN }
-        : { barcode: code, location, qty: qtyN, unit_cost: costN, name: name.trim(), sell_price: sellN!, unit: "cái" }
+        : { barcode: code, location, qty: qtyN, unit_cost: costN, name: name.trim(), sell_price: sellN!, unit: vi.defaultUnit }
       const r = await api.receive(body)
       setOk(`${vi.received}: ${r.product.name} · ${vi.inStock} ${r.stock_qty_milli / 1000}`)
       setCode(null); setFound(null); setQty(""); setCost(""); setName(""); setSell("")
@@ -108,6 +127,7 @@ export function ReceiveGoods({ floor, onExpired, onBack }: Props) {
       </form>
       {ok ? <div className="form-ok" role="status">{ok}</div> : null}
       {error ? <div className="form-error" role="alert">{error}</div> : null}
+      {found && amountInvalid ? <div className="form-error" role="alert">{vi.invalidAmount}</div> : null}
       {found ? (
         <form className="form-card" onSubmit={submit}>
           {found.kind === "known" ? (
@@ -122,7 +142,7 @@ export function ReceiveGoods({ floor, onExpired, onBack }: Props) {
                 <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} />
               </label>
               <label className="form-label">{vi.sellPrice}
-                <input className="form-input" inputMode="numeric" placeholder="18.000" value={sell} onChange={(e) => setSell(e.target.value)} />
+                <input className="form-input" inputMode="numeric" placeholder={vi.sellPricePlaceholder} value={sell} onChange={(e) => setSell(e.target.value)} />
               </label>
             </>
           )}

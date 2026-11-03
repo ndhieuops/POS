@@ -1,5 +1,7 @@
-/** Parse a đồng amount typed with optional dot/space thousands separators ("3.600" -> 3600). Null if invalid. */
+/** Parse a đồng amount: plain digits or dot-separated thousands groups ("3.600" -> 3600). Null otherwise. */
 export function parseDong(input: string): number | null {
-  const s = input.trim().replace(/[.\s]/g, "")
-  return /^\d{1,12}$/.test(s) ? parseInt(s, 10) : null
+  const s = input.trim()
+  if (!/^(\d{1,3}(\.\d{3})+|\d+)$/.test(s)) return null
+  const n = parseInt(s.replace(/\./g, ""), 10)
+  return Number.isSafeInteger(n) ? n : null
 }

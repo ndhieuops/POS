@@ -20,6 +20,7 @@ export function DeviceSetup({ onDone }: { onDone: () => void }) {
     try {
       const d = await api.registerDevice(name.trim(), floor)
       setDeviceId(d.id)
+      void api.ownerLogout().catch(() => {})
       onDone()
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) setAuthed(false)

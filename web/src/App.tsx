@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom"
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom"
 import { api, ApiError, type Device, type Service } from "./api/client"
 import { vi } from "./i18n/vi"
 import { getDeviceId } from "./lib/deviceId"
@@ -77,15 +77,12 @@ export default function App({ now }: { now?: () => Date } = {}) {
 
   const device = boot.device
   const pick = (s: Service) => navigate(s === "grocery" ? "/grocery" : "/soon")
-  const leaveOwner = () => {
-    void api.ownerLogout().catch(() => {})
-    navigate("/grocery")
-  }
+  const expired = () => navigate("/grocery", { state: { expired: true } })
   return (
     <Routes>
       <Route path="/" element={<ServicePicker floor={device.floor} now={now} onPick={pick} />} />
-      <Route path="/grocery" element={<GroceryCheckout deviceId={device.id} onReceive={() => navigate("/receive")} />} />
-      <Route path="/receive" element={<ReceiveGoods floor={device.floor} onExpired={() => navigate("/grocery")} onBack={leaveOwner} />} />
+      <Route path="/grocery" element={<GroceryRoute deviceId={device.id} onReceive={() => navigate("/receive")} />} />
+      <Route path="/receive" element={<ReceiveGoods floor={device.floor} onExpired={expired} onBack={() => navigate("/grocery")} />} />
       <Route path="/soon" element={
         <div className="form-page">
           <h1>{vi.comingSoon}</h1>
@@ -96,4 +93,10 @@ export default function App({ now }: { now?: () => Date } = {}) {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
+}
+
+function GroceryRoute({ deviceId, onReceive }: { deviceId: string; onReceive: () => void }) {
+  const loc = useLocation()
+  const expired = (loc.state as { expired?: boolean } | null)?.expired === true
+  return <GroceryCheckout deviceId={deviceId} onReceive={onReceive} notice={expired ? vi.sessionExpired : undefined} />
 }

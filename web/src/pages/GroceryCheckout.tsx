@@ -25,7 +25,7 @@ function pendingFrom(e: unknown): SaleOut | null {
   return null
 }
 
-export function GroceryCheckout({ deviceId, onReceive }: { deviceId: string; onReceive?: () => void }) {
+export function GroceryCheckout({ deviceId, onReceive, notice }: { deviceId: string; onReceive?: () => void; notice?: string }) {
   const [pinOpen, setPinOpen] = useState(false)
   const [cart, setCart] = useState<CartLine[]>([])
   const [modalSale, setModalSale] = useState<SaleOut | null>(null)
@@ -179,6 +179,7 @@ export function GroceryCheckout({ deviceId, onReceive }: { deviceId: string; onR
             </button>
           </div>
         ) : null}
+        {notice ? <div className="gc-error" role="status">{notice}</div> : null}
         {error ? <div className="gc-error" role="alert">{error}</div> : null}
         <ul className="gc-lines" aria-label={vi.cartTitle}>
           {empty ? <li className="gc-empty">{vi.emptyCart}</li> : null}

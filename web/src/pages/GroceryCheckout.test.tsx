@@ -279,4 +279,10 @@ describe("GroceryCheckout", () => {
     fireEvent.click(screen.getByRole("button", { name: vi.confirm }))
     await waitFor(() => expect(onReceive).toHaveBeenCalled())
   })
+
+  it("shows notice when given", async () => {
+    render(<GroceryCheckout deviceId="dev1" notice={vi.sessionExpired} />)
+    await act(async () => {})
+    expect(screen.getByRole("status").textContent).toBe("Hết phiên chủ quán, vui lòng nhập lại mã PIN")
+  })
 })

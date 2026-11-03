@@ -11,7 +11,7 @@ vitest.mock("./api/client", async (orig) => {
     ...m,
     api: {
       setupStatus: vitest.fn(), getDevice: vitest.fn(), pendingSale: vitest.fn(),
-      lookupBarcode: vitest.fn(), ownerLogout: vitest.fn(),
+      lookupBarcode: vitest.fn(), ownerLogout: vitest.fn(), ownerLookupBarcode: vitest.fn(),
     },
   }
 })
@@ -70,5 +70,20 @@ describe("App routing", () => {
     expect(screen.getByRole("button", { name: "Trà & Kem" })).toBeTruthy()
     expect(screen.getByRole("button", { name: "Pub" })).toBeTruthy()
     expect(screen.queryByRole("button", { name: "Tạp hóa" })).toBeNull()
+  })
+
+  it("idle on /receive logs out and returns to selling screen with notice", async () => {
+    A.setupStatus.mockResolvedValue({ configured: true })
+    A.getDevice.mockResolvedValue({ id: "d1", name: "Quầy", floor: "floor1" })
+    localStorage.setItem("pos_device_id", "d1")
+    await open("/receive")
+    vitest.useFakeTimers()
+    try {
+      act(() => { vitest.advanceTimersByTime(300000) })
+      act(() => { vitest.advanceTimersByTime(10) })
+    } finally { vitest.useRealTimers() }
+    await act(async () => {})
+    expect(A.ownerLogout).toHaveBeenCalled()
+    expect(screen.getByRole("status").textContent).toBe(vi.sessionExpired)
   })
 })
