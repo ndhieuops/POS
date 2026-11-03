@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 from typing import Literal
 
 from sqlalchemy import (
-    Boolean, Date, DateTime, ForeignKey, Integer, String, TypeDecorator,
+    Boolean, Date, DateTime, ForeignKey, Integer, String, TypeDecorator, UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -48,8 +48,9 @@ class Device(Base):
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (UniqueConstraint("barcode", "location", name="uq_product_barcode_location"),)
     id: Mapped[int] = mapped_column(primary_key=True)
-    barcode: Mapped[str | None] = mapped_column(String, unique=True)
+    barcode: Mapped[str | None] = mapped_column(String)
     name: Mapped[str] = mapped_column(String)
     unit: Mapped[str] = mapped_column(String)
     sell_price: Mapped[int] = mapped_column(Integer)

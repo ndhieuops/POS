@@ -33,7 +33,7 @@ def lookup(code: str, location: Location = "grocery", db: Session = Depends(get_
 )
 def create_product(body: ProductIn, db: Session = Depends(get_db)):
     code = service.normalize_barcode(body.barcode)
-    if code is not None and service.barcode_taken(db, code):
+    if code is not None and service.barcode_taken(db, code, body.location):
         raise HTTPException(409, messages.BARCODE_EXISTS)
     p = Product(
         barcode=code,

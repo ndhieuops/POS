@@ -105,3 +105,33 @@ def test_list_filters(owner_client):
 
 def test_negative_price_422(owner_client):
     assert mk(owner_client, sell_price=-1).status_code == 422
+
+
+def test_same_barcode_both_locations(owner_client):
+    a = mk(owner_client, barcode="8934588012228", location="grocery")
+    b = mk(owner_client, barcode="8934588012228", location="floor4")
+    assert a.status_code == 201 and b.status_code == 201
+    g = owner_client.get("/api/products/by-barcode/8934588012228?location=grocery").json()
+    f = owner_client.get("/api/products/by-barcode/8934588012228?location=floor4").json()
+    assert g["id"] == a.json()["id"] and f["id"] == b.json()["id"] and g["id"] != f["id"]
+    assert mk(owner_client, barcode="8934588012228", location="floor4").status_code == 409
+
+
+def test_migration_allows_same_barcode_two_locations(tmp_path):
+    import sqlite3
+
+    from pos.db import run_migrations
+
+    path = str(tmp_path / "m.db")
+    run_migrations(path)
+    con = sqlite3.connect(path)
+    sql = ("INSERT INTO products (barcode,name,unit,sell_price,location,track_stock,"
+           "stock_qty_milli,active) VALUES ('X1','n','u',1,'%s',0,0,1)")
+    con.execute(sql % "grocery")
+    con.execute(sql % "floor4")
+    try:
+        con.execute(sql % "grocery")
+        raise AssertionError("duplicate in same location accepted")
+    except sqlite3.IntegrityError:
+        pass
+    con.close()
