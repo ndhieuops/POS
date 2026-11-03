@@ -24,19 +24,30 @@ if [ ! -f "$SRC/web/dist/index.html" ]; then
 fi
 
 apt-get update
-apt-get install -y python3-venv
+apt-get install -y python3-venv rsync
 
 id -u pos >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --shell /usr/sbin/nologin pos
 
+# rsync --delete removes stale files on update. Its target is only ever /opt/pos; data and
+# backups live outside it, and are also excluded so they can never be deleted.
+[ "$APP" = /opt/pos ] || { echo "Lỗi: thư mục cài đặt phải là /opt/pos" >&2; exit 1; }
+case "$DATA/" in "$APP"/*) echo "Lỗi: dữ liệu nằm trong $APP" >&2; exit 1 ;; esac
+case "$BACKUPS/" in "$APP"/*) echo "Lỗi: sao lưu nằm trong $APP" >&2; exit 1 ;; esac
+case "$SRC/" in "$DATA"/*|"$BACKUPS"/*|/) echo "Lỗi: thư mục nguồn không hợp lệ: $SRC" >&2; exit 1 ;; esac
+
 mkdir -p "$APP" "$DATA" "$BACKUPS"
 if [ "$SRC" != "$APP" ]; then
-  tar -C "$SRC" --exclude=.git --exclude=node_modules --exclude=.venv --exclude=__pycache__ \
-      --exclude='*.db' -cf - . | tar -C "$APP" -xf -
+  rsync -a --delete \
+      --exclude=.git --exclude=.superpowers --exclude=node_modules --exclude=.venv \
+      --exclude=__pycache__ --exclude='*.db' --exclude='*.db-wal' --exclude='*.db-shm' \
+      --exclude=/var/lib/pos --exclude=/var/backups/pos \
+      "$SRC/" "$APP/"
 fi
 
 [ -x "$APP/server/.venv/bin/python" ] || python3 -m venv "$APP/server/.venv"
 "$APP/server/.venv/bin/python" -m pip install --upgrade pip
-"$APP/server/.venv/bin/python" -m pip install -e "$APP/server"
+# Pinned to the versions the tests ran with.
+"$APP/server/.venv/bin/python" -m pip install -c "$APP/server/requirements.lock" -e "$APP/server"
 
 chown -R pos:pos "$DATA" "$BACKUPS"
 chmod 750 "$DATA" "$BACKUPS"
