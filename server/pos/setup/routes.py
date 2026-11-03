@@ -55,8 +55,10 @@ def do_setup(body: SetupIn, db: Session = Depends(get_db)):
 
 @router.post("/owner/login")
 def login(body: LoginIn, response: Response, db: Session = Depends(get_db)):
-    if auth.lock_state(db, body.device_id) or auth.global_lock_state(db):
+    if auth.lock_state(db, body.device_id):
         raise HTTPException(429, messages.PIN_LOCKED)
+    if auth.global_lock_state(db):
+        raise HTTPException(429, messages.PIN_LOCKED_GLOBAL)
     stored = auth.get_setting(db, "owner_pin_hash")
     ok = stored is not None and auth.verify_pin(body.pin, stored)
     db.add(PinAttempt(device_id=body.device_id, at=timeutil.now(), ok=ok))

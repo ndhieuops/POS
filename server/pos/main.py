@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from pos import messages
 from pos.config import Settings
@@ -33,6 +34,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def validation_error(request: Request, exc: RequestValidationError):
         return JSONResponse(status_code=422, content={"detail": messages.INVALID_INPUT})
 
+    # Starlette's own 404/405 details are English; replace only those, keep our messages.
+    _defaults = {404: messages.NOT_FOUND, 405: messages.METHOD_NOT_ALLOWED}
+    _ours = {v for k, v in vars(messages).items() if k.isupper() and isinstance(v, str)}
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error(request: Request, exc: StarletteHTTPException):
+        detail = exc.detail
+        if not (isinstance(detail, str) and detail in _ours) and exc.status_code in _defaults:
+            detail = _defaults[exc.status_code]
+        return JSONResponse(status_code=exc.status_code, content={"detail": detail},
+                            headers=getattr(exc, "headers", None))
+
     @app.get("/api/health")
     def health():
         return {"ok": True}
@@ -50,7 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str):
             if path == "api" or path.startswith("api/"):
-                raise HTTPException(status_code=404, detail="Not Found")
+                raise HTTPException(status_code=404, detail=messages.NOT_FOUND)
             f = (dist / path).resolve()
             if path and f.is_file() and f.is_relative_to(dist):
                 return FileResponse(f)

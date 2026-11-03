@@ -53,3 +53,12 @@ def test_missing_dist_is_ok(tmp_path):
     with TestClient(app) as c:
         assert c.get("/api/health").status_code == 200
         assert c.get("/grocery").status_code == 404
+
+
+def test_unknown_api_detail_is_vietnamese(spa_client):
+    from pos import messages
+    r = spa_client.get("/api/x")
+    assert r.status_code == 404 and r.json()["detail"] == messages.NOT_FOUND
+    r = spa_client.post("/api/x")
+    assert r.status_code in (404, 405)
+    assert r.json()["detail"] in (messages.NOT_FOUND, messages.METHOD_NOT_ALLOWED)

@@ -108,7 +108,7 @@ def test_global_lockout_across_devices(configured_client):
         assert r.status_code == 401
     r = c.post("/api/owner/login", json={"pin": "2468", "device_id": "dev-new"})
     assert r.status_code == 429
-    assert r.json()["detail"] == messages.PIN_LOCKED
+    assert r.json()["detail"] == messages.PIN_LOCKED_GLOBAL
 
 
 def test_device_id_with_dot_rejected(configured_client):
@@ -148,3 +148,21 @@ def test_model_defaults_use_patched_now(client, set_now):
         db.commit()
         db.refresh(d)
         assert d.created_at == T0
+
+
+def test_global_lockout_message(configured_client):
+    c = configured_client
+    for i in range(10):
+        c.post("/api/owner/login", json={"pin": "0000", "device_id": f"dev-{i}"})
+    r = c.post("/api/owner/login", json={"pin": "2468", "device_id": "dev-new"})
+    assert r.status_code == 429
+    assert r.json()["detail"] == messages.PIN_LOCKED_GLOBAL
+    assert messages.PIN_LOCKED_GLOBAL == "Có quá nhiều lần nhập sai mã PIN. Vui lòng thử lại sau 5 phút"
+
+
+def test_device_lockout_keeps_device_message(configured_client):
+    c = configured_client
+    for _ in range(5):
+        c.post("/api/owner/login", json={"pin": "0000", "device_id": "one"})
+    r = c.post("/api/owner/login", json={"pin": "2468", "device_id": "one"})
+    assert r.status_code == 429 and r.json()["detail"] == messages.PIN_LOCKED
