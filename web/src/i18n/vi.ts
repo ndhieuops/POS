@@ -78,4 +78,7 @@ export const vi = {
   defaultUnit: "cái",
   sellPricePlaceholder: "18.000",
   comingSoonBody: "Tính năng này sẽ có sau",
+  cashTitle: "Khách trả tiền mặt",
+  cashReceived: "✓ Đã nhận tiền mặt",
+  back: "Quay lại",
 } as const

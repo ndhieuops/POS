@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { api, ApiError, type ProductOut, type SaleLineIn, type SaleOut } from "../api/client"
+import { CashConfirmDialog } from "../components/CashConfirmDialog"
 import { CustomPriceDialog } from "../components/CustomPriceDialog"
 import { OwnerPinDialog } from "../components/OwnerPinDialog"
 import { QrPaymentModal } from "../components/QrPaymentModal"
@@ -35,12 +36,23 @@ export function GroceryCheckout({ deviceId, onReceive, notice }: { deviceId: str
   const [busy, setBusy] = useState(false)
   const [manual, setManual] = useState("")
   const [pendingReady, setPendingReady] = useState(false)
+  const [cashSale, setCashSale] = useState<SaleOut | null>(null)
+  // Shown once (e.g. owner session expired); cleared after 10 s or on the first scan.
+  const [shownNotice, setShownNotice] = useState<string | null>(notice ?? null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const nextKey = useRef(1)
   // Keys of cart lines sent with the sale shown in the modal; null when the modal is for a foreign (earlier) sale.
   const sentKeys = useRef<Set<number> | null>(null)
-  // Sale created by us whose QR request may have been lost; a 409 for the same id is our own sale.
-  const created = useRef<{ id: number; keys: Set<number> } | null>(null)
+  // Sale created by us and not yet known paid. Re-used while the cart is unchanged (sig), so a
+  // lost cash/QR response never creates a second sale; a 409 for the same id is our own sale.
+  const created = useRef<{ id: number; keys: Set<number>; sig: string; sale: SaleOut } | null>(null)
   const busyRef = useRef(false)
+
+  useEffect(() => {
+    if (!shownNotice) return
+    const t = setTimeout(() => setShownNotice(null), 10_000)
+    return () => clearTimeout(t)
+  }, [shownNotice])
 
   useEffect(() => {
     let alive = true
@@ -79,6 +91,7 @@ export function GroceryCheckout({ deviceId, onReceive, notice }: { deviceId: str
     const code = raw.trim()
     setManual("")
     if (!code) return
+    setShownNotice(null)
     setError(null)
     setNotFound(false)
     try {
@@ -89,7 +102,7 @@ export function GroceryCheckout({ deviceId, onReceive, notice }: { deviceId: str
     }
   }, [addProduct])
 
-  const dialogOpen = modalSale !== null || customOpen || pinOpen
+  const dialogOpen = modalSale !== null || cashSale !== null || customOpen || pinOpen
   const locked = dialogOpen || busy || !pendingReady
   useBarcodeScanner(handleCode, !locked)
 
@@ -99,12 +112,20 @@ export function GroceryCheckout({ deviceId, onReceive, notice }: { deviceId: str
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Enter") return
       // Only the custom-price note input may take Enter; keypad digits must not be re-pressed.
-      const inNote = modalSale === null && e.target instanceof HTMLInputElement
+      const inNote = modalSale === null && cashSale === null && e.target instanceof HTMLInputElement
       if (!inNote) e.preventDefault()
     }
     window.addEventListener("keydown", onKey, true)
     return () => window.removeEventListener("keydown", onKey, true)
-  }, [dialogOpen, modalSale])
+  }, [dialogOpen, modalSale, cashSale])
+
+  // With no dialog open, keep focus on the barcode input so a slow scan + Enter
+  // still submits through the manual form. Runs after every render (i.e. after actions).
+  useEffect(() => {
+    if (locked) return
+    const el = inputRef.current
+    if (el && document.activeElement !== el) el.focus()
+  })
 
   function clearSent() {
     const sent = sentKeys.current
@@ -130,14 +151,22 @@ export function GroceryCheckout({ deviceId, onReceive, notice }: { deviceId: str
     try {
       const lines: SaleLineIn[] = cart.map(({ key: _k, ...l }) => l)
       const keys = new Set(cart.map((l) => l.key))
+      const sig = JSON.stringify(cart)
       sentKeys.current = keys
-      const sale = await api.createSale({ device_id: deviceId, service: "grocery", lines })
-      created.current = { id: sale.id, keys }
+      let sale: SaleOut
+      const prev = created.current
+      if (prev && prev.sig === sig) {
+        // Same cart as our earlier sale (response lost, or "Quay lại"): re-use it, never duplicate.
+        sale = prev.sale
+      } else {
+        // Cart changed: an earlier open sale (if any) is abandoned.
+        sale = await api.createSale({ device_id: deviceId, service: "grocery", lines })
+        created.current = { id: sale.id, keys, sig, sale }
+      }
       if (kind === "qr") {
         setModalSale(await api.requestQr(sale.id))
       } else {
-        await api.confirm(sale.id, "cash")
-        clearSent()
+        setCashSale(sale)
       }
     } catch (e) {
       const pending = pendingFrom(e)
@@ -163,6 +192,7 @@ export function GroceryCheckout({ deviceId, onReceive, notice }: { deviceId: str
           onSubmit={(e) => { e.preventDefault(); void handleCode(manual) }}
         >
           <input
+            ref={inputRef}
             className="gc-input"
             aria-label={vi.barcodeInput}
             placeholder={vi.scanOrType}
@@ -179,7 +209,7 @@ export function GroceryCheckout({ deviceId, onReceive, notice }: { deviceId: str
             </button>
           </div>
         ) : null}
-        {notice ? <div className="gc-error" role="status">{notice}</div> : null}
+        {shownNotice ? <div className="gc-info" role="status">{shownNotice}</div> : null}
         {error ? <div className="gc-error" role="alert">{error}</div> : null}
         <ul className="gc-lines" aria-label={vi.cartTitle}>
           {empty ? <li className="gc-empty">{vi.emptyCart}</li> : null}
@@ -212,7 +242,7 @@ export function GroceryCheckout({ deviceId, onReceive, notice }: { deviceId: str
           {vi.payCash}
         </button>
         {onReceive ? (
-          <button type="button" className="btn btn-secondary" disabled={locked} onClick={() => setPinOpen(true)}>
+          <button type="button" className="btn btn-secondary" disabled={locked || !empty} onClick={() => setPinOpen(true)}>
             {vi.receiveGoods}
           </button>
         ) : null}
@@ -235,6 +265,13 @@ export function GroceryCheckout({ deviceId, onReceive, notice }: { deviceId: str
         <OwnerPinDialog
           onClose={() => setPinOpen(false)}
           onSuccess={() => { setPinOpen(false); onReceive?.() }}
+        />
+      ) : null}
+      {cashSale ? (
+        <CashConfirmDialog
+          sale={cashSale}
+          onPaid={() => { setCashSale(null); clearSent() }}
+          onBack={() => { setCashSale(null); sentKeys.current = null }}
         />
       ) : null}
       {modalSale ? (

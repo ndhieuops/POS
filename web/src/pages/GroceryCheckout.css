@@ -15,3 +15,4 @@
 .gc-total { font-size: 56px; font-weight: 800; line-height: 1.1; }
 .gc-wait { font-size: 20px; color: var(--muted); }
 @media (max-width: 800px) { .gc { grid-template-columns: 1fr; } }
+.gc-info { font-size: 22px; font-weight: 600; color: var(--text); background: #e0f2fe; border: 2px solid #0369a1; border-radius: 12px; padding: 8px 12px; }
