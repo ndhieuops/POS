@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Install POS on Ubuntu 24.04. Run: sudo bash deploy/install.sh (from the repo). Safe to re-run.
+# Install POS on Ubuntu 24.04. Run: sudo bash deploy/install.sh [port] (from the repo). Safe to re-run.
+# Port: the argument if given, else the port saved by the last install, else 8080.
 set -euo pipefail
 
 [ "$(id -u)" -eq 0 ] || { echo "Hãy chạy bằng sudo: sudo bash deploy/install.sh"; exit 1; }
@@ -10,6 +11,15 @@ SRC="$(cd "$(dirname "$0")/.." && pwd)"
 APP=/opt/pos
 DATA=/var/lib/pos
 BACKUPS=/var/backups/pos
+ENV_FILE=/etc/pos/pos.env
+
+# Port: argument > previously saved port > 8080.
+PORT="${1-}"
+if [ -z "$PORT" ] && [ -f "$ENV_FILE" ]; then
+  PORT="$(sed -n 's/^POS_PORT=//p' "$ENV_FILE" | head -n1)"
+fi
+PORT="${PORT:-8080}"
+port_ok "$PORT" || { echo "Lỗi: cổng không hợp lệ: '$PORT'. Hãy dùng một số từ 1024 đến 65535, ví dụ: sudo bash deploy/install.sh 8181" >&2; exit 1; }
 
 # Web build: use a ready web/dist, else build only with a new enough Node (apt Node 18 is too old for Vite 8).
 if [ ! -f "$SRC/web/dist/index.html" ]; then
@@ -57,6 +67,10 @@ chown -R root:root "$APP"
 # (same alembic upgrade head the server runs at start-up)
 (cd "$APP/server" && sudo -u pos .venv/bin/python -c 'import sys; from pos.db import run_migrations; run_migrations(sys.argv[1])' "$DATA/pos.db")
 
+mkdir -p /etc/pos
+printf 'POS_PORT=%s\n' "$PORT" > "$ENV_FILE"
+chmod 644 "$ENV_FILE"
+
 install -m 644 "$APP/deploy/pos.service" /etc/systemd/system/pos.service
 install -m 644 "$APP/deploy/pos-backup.service" /etc/systemd/system/pos-backup.service
 install -m 644 "$APP/deploy/pos-backup.timer" /etc/systemd/system/pos-backup.timer
@@ -64,4 +78,4 @@ systemctl daemon-reload
 systemctl enable --now pos.service pos-backup.timer
 systemctl restart pos.service
 
-echo "Xong. Mở http://<ip-máy-chủ>:8080 trên màn hình."
+echo "Xong. Mở http://<ip-máy-chủ>:$PORT trên màn hình."

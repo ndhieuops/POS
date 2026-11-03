@@ -15,3 +15,10 @@ have_usable_node() {
   command -v node >/dev/null 2>&1 || return 1
   node_version_ok "$(node --version 2>/dev/null || true)"
 }
+
+# port_ok "8181" -> 0 only for a plain number 1024..65535 (no root-only ports, no junk).
+port_ok() {
+  local p="${1-}"
+  [[ "$p" =~ ^[1-9][0-9]{3,4}$ ]] || return 1
+  [ "$p" -ge 1024 ] && [ "$p" -le 65535 ]
+}

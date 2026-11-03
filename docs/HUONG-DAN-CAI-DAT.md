@@ -34,8 +34,16 @@ Xong sẽ có thư mục `POS/web/dist`.
    sudo bash deploy/install.sh
    ```
 
-4. Nhập mật khẩu máy chủ nếu được hỏi. Chờ vài phút cho đến khi thấy dòng **"Xong."** Nếu báo thiếu `web/dist`, quay lại bước 2a.
-5. Muốn cài lại hoặc cập nhật: chạy lại đúng hai dòng trên. Dữ liệu bán hàng không bị mất.
+   Muốn dùng **cổng khác** (mặc định là `8080`), ghi số cổng ở cuối, ví dụ cổng `8181`:
+
+   ```
+   sudo bash deploy/install.sh 8181
+   ```
+
+   Số cổng phải từ `1024` đến `65535` và chưa có phần mềm nào khác dùng.
+
+4. Nhập mật khẩu máy chủ nếu được hỏi. Chờ vài phút cho đến khi thấy dòng **"Xong."** Dòng này cho biết địa chỉ cần mở, kèm số cổng. Nếu báo thiếu `web/dist`, quay lại bước 2a.
+5. Muốn cài lại hoặc cập nhật: chạy lại đúng hai dòng trên. Dữ liệu bán hàng không bị mất. Cổng đã chọn lần trước được giữ nguyên; chỉ ghi số cổng khi muốn **đổi** cổng. Sau khi đổi cổng, nhớ sửa lại địa chỉ đã lưu trên từng màn hình.
 
 Sau khi cài xong, phần mềm tự chạy mỗi khi máy chủ bật lên.
 
@@ -54,10 +62,10 @@ Dòng đầu tiên là địa chỉ, ví dụ `192.168.1.20`. Nên nhờ thợ m
 Trên trình duyệt của mỗi màn hình tầng, mở:
 
 ```
-http://<ip-máy-chủ>:8080
+http://<ip-máy-chủ>:<cổng>
 ```
 
-Ví dụ: `http://192.168.1.20:8080`. Thay `<ip-máy-chủ>` bằng địa chỉ ở bước 3. Nên lưu thành dấu trang hoặc thêm vào màn hình chính để mở nhanh.
+Ví dụ: `http://192.168.1.20:8080` (cổng mặc định), hoặc `http://192.168.1.20:8181` nếu lúc cài bạn chọn cổng `8181`. Thay `<ip-máy-chủ>` bằng địa chỉ ở bước 3. Quên cổng đã chọn? Trên máy chủ gõ `cat /etc/pos/pos.env`. Nên lưu thành dấu trang hoặc thêm vào màn hình chính để mở nhanh.
 
 ## 5. Thiết lập lần đầu (làm một lần)
 

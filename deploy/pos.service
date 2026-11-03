@@ -6,7 +6,9 @@ After=network.target
 User=pos
 WorkingDirectory=/opt/pos/server
 Environment=POS_DB_PATH=/var/lib/pos/pos.db POS_BACKUP_DIR=/var/backups/pos
-ExecStart=/opt/pos/server/.venv/bin/uvicorn pos.main:create_app --factory --host 0.0.0.0 --port 8080
+# POS_PORT is written by install.sh (sudo bash deploy/install.sh <port>).
+EnvironmentFile=/etc/pos/pos.env
+ExecStart=/opt/pos/server/.venv/bin/uvicorn pos.main:create_app --factory --host 0.0.0.0 --port ${POS_PORT}
 Restart=always
 RestartSec=2
 MemoryMax=600M

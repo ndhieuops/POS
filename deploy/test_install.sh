@@ -48,4 +48,15 @@ need 'APP=/opt/pos'
 needF '[ "$APP" = /opt/pos ]'
 ! grep -q -- '--delete-excluded' "$D/install.sh" || { echo 'FAIL: --delete-excluded would wipe .venv'; exit 1; }
 [ "$(grep -c 'rsync -a' "$D/install.sh")" = 1 ] || { echo 'FAIL: exactly one rsync expected'; exit 1; }
+# Custom port: install.sh [port], saved to /etc/pos/pos.env, used by pos.service
+for ok in 1024 8080 8181 65535; do port_ok "$ok" || { echo "FAIL: port $ok should pass"; exit 1; }; done
+for bad in '' 0 80 1023 65536 99999 08181 8181a ' 8181' -1 abc; do ! port_ok "$bad" || { echo "FAIL: port '$bad' should fail"; exit 1; }; done
+needF 'PORT="${1-}"'
+needF 'port_ok "$PORT"'
+needF 'ENV_FILE=/etc/pos/pos.env'
+needF "printf 'POS_PORT=%s\\n' \"\$PORT\" > \"\$ENV_FILE\""
+needF ':$PORT trên màn hình'
+grep -qx 'EnvironmentFile=/etc/pos/pos.env' "$D/pos.service" || { echo "FAIL: EnvironmentFile"; exit 1; }
+grep -qF -- '--port ${POS_PORT}' "$D/pos.service" || { echo "FAIL: --port \${POS_PORT}"; exit 1; }
+! grep -q -- '--port 8080' "$D/pos.service" || { echo "FAIL: hard-coded port"; exit 1; }
 echo "PASS test_install"
