@@ -168,6 +168,37 @@ describe("GroceryCheckout", () => {
     expect(A.confirm).not.toHaveBeenCalled()
   })
 
+  it("Enter in custom dialog does not re-press a keypad digit", async () => {
+    await renderPage()
+    fireEvent.click(screen.getByRole("button", { name: vi.customPrice }))
+    const five = screen.getByRole("button", { name: "5" })
+    fireEvent.click(five)
+    expect(screen.getByTestId("custom-amount").textContent).toBe("5.000đ")
+    five.focus()
+    for (const c of "8934563138165") fireEvent.keyDown(window, { key: c })
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })
+    act(() => { five.dispatchEvent(enter) })
+    expect(enter.defaultPrevented).toBe(true)
+    expect(screen.getByTestId("custom-amount").textContent).toBe("5.000đ")
+  })
+
+  it("lost requestQr response: retry gets own sale back, paid clears cart", async () => {
+    A.createSale.mockResolvedValue({ ...qrSale, status: "open" })
+    A.requestQr.mockRejectedValueOnce(new ApiError(0, vi.networkError))
+    A.confirm.mockResolvedValue({ ...qrSale, status: "paid" })
+    await renderPage()
+    scan(milk.barcode)
+    await screen.findByText("Sữa")
+    fireEvent.click(screen.getByRole("button", { name: vi.payQr }))
+    expect(await screen.findByText(vi.networkError)).toBeTruthy()
+    A.createSale.mockRejectedValueOnce(new ApiError(409, "pending", { sale: qrSale }))
+    fireEvent.click(screen.getByRole("button", { name: vi.payQr }))
+    await screen.findByRole("dialog")
+    fireEvent.click(screen.getByRole("button", { name: vi.moneyReceived }))
+    await waitFor(() => expect(screen.getByText(vi.emptyCart)).toBeTruthy())
+    expect(A.confirm).toHaveBeenCalledWith(9, "bank_qr")
+  })
+
   it("locked until pending-sale check resolves", async () => {
     let release!: (s: SaleOut | null) => void
     A.pendingSale.mockReturnValue(new Promise((r) => { release = r }))

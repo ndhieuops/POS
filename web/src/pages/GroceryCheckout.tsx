@@ -36,6 +36,8 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
   const nextKey = useRef(1)
   // Keys of cart lines sent with the sale shown in the modal; null when the modal is for a foreign (earlier) sale.
   const sentKeys = useRef<Set<number> | null>(null)
+  // Sale created by us whose QR request may have been lost; a 409 for the same id is our own sale.
+  const created = useRef<{ id: number; keys: Set<number> } | null>(null)
   const busyRef = useRef(false)
 
   useEffect(() => {
@@ -94,8 +96,9 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
     if (!dialogOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Enter") return
-      const inDialog = e.target instanceof Element && e.target.closest('[role="dialog"]') !== null
-      if (modalSale !== null || !inDialog) e.preventDefault()
+      // Only the custom-price note input may take Enter; keypad digits must not be re-pressed.
+      const inNote = modalSale === null && e.target instanceof HTMLInputElement
+      if (!inNote) e.preventDefault()
     }
     window.addEventListener("keydown", onKey, true)
     return () => window.removeEventListener("keydown", onKey, true)
@@ -104,6 +107,7 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
   function clearSent() {
     const sent = sentKeys.current
     sentKeys.current = null
+    created.current = null
     if (sent) setCart((c) => c.filter((l) => !sent.has(l.key)))
   }
 
@@ -123,8 +127,10 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
     setError(null)
     try {
       const lines: SaleLineIn[] = cart.map(({ key: _k, ...l }) => l)
-      sentKeys.current = new Set(cart.map((l) => l.key))
+      const keys = new Set(cart.map((l) => l.key))
+      sentKeys.current = keys
       const sale = await api.createSale({ device_id: deviceId, service: "grocery", lines })
+      created.current = { id: sale.id, keys }
       if (kind === "qr") {
         setModalSale(await api.requestQr(sale.id))
       } else {
@@ -133,7 +139,11 @@ export function GroceryCheckout({ deviceId }: { deviceId: string }) {
       }
     } catch (e) {
       const pending = pendingFrom(e)
-      if (pending) { sentKeys.current = null; setModalSale(pending) }
+      if (pending) {
+        const own = created.current !== null && created.current.id === pending.id
+        sentKeys.current = own ? created.current!.keys : null
+        setModalSale(pending)
+      }
       else setError(errMsg(e))
     } finally {
       busyRef.current = false
