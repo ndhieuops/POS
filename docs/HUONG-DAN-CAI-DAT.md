@@ -80,14 +80,14 @@ Sau khi lưu, màn hình **"Thiết lập thiết bị"** hiện ra (làm trên 
 3. Chọn **Tầng 1** hoặc **Tầng 4**.
 4. Bấm **Đăng ký thiết bị**.
 
-Màn hình ở Tầng 1 chỉ hiện dịch vụ **Tạp hóa**. Màn hình nhớ lựa chọn này; không cần làm lại. (Nếu xóa dữ liệu trình duyệt thì phải đăng ký lại.)
+Màn hình ở Tầng 1 vào thẳng màn hình bán **Tạp hóa** (không cần chọn dịch vụ). Màn hình ở Tầng 4 hiện **Trà & Kem** và **Pub** để chọn. Màn hình nhớ lựa chọn này; không cần làm lại. (Nếu xóa dữ liệu trình duyệt thì phải đăng ký lại.)
 
 ## 7. Máy quét mã vạch USB
 
 1. Cắm máy quét vào cổng USB của màn hình hoặc máy tính bảng (cần đầu chuyển nếu thiếu cổng).
 2. Mở màn hình **Tạp hóa**, hướng máy quét vào mã vạch trên hàng. Sản phẩm tự vào giỏ hàng.
 3. Không cần bấm vào ô nào trước khi quét.
-4. Hàng chưa có trong kho: bấm **Nhập hàng**, nhập mã PIN, quét mã, điền tên, giá bán, số lượng, giá nhập rồi bấm **✓ Lưu sản phẩm mới**.
+4. Hàng chưa có trong kho: bấm **Nhập hàng** (nút này chỉ bấm được khi giỏ hàng trống), nhập mã PIN, quét mã, điền tên, giá bán, số lượng, giá nhập rồi bấm **✓ Lưu sản phẩm mới**.
 5. Khi cửa sổ mã QR đang mở, máy quét tạm dừng cho đến khi bạn bấm **✓ Đã nhận tiền** (hoặc **💵 Trả tiền mặt**).
 
 ## 8. Bán hàng bằng chuyển khoản
@@ -97,6 +97,12 @@ Màn hình ở Tầng 1 chỉ hiện dịch vụ **Tạp hóa**. Màn hình nh�
 3. Khi điện thoại hoặc ứng dụng ngân hàng báo đã nhận tiền, bấm **✓ Đã nhận tiền**.
 
 Cửa sổ QR không có nút hủy, để tránh nhầm. Nếu tải lại trang, mã QR vẫn còn.
+
+### Bán hàng bằng tiền mặt
+
+1. Quét hàng vào giỏ, bấm **Thanh toán tiền mặt**.
+2. Cửa sổ **"Khách trả tiền mặt"** hiện tổng tiền. Nhận tiền của khách rồi bấm **✓ Đã nhận tiền mặt**.
+3. Bấm nhầm hoặc khách muốn đổi hàng: bấm **Quay lại**, giỏ hàng vẫn giữ nguyên.
 
 ## 9. Sao lưu dữ liệu (backup)
 
@@ -158,4 +164,18 @@ Lệnh này hiện 100 dòng gần nhất. Xem liên tục: `sudo journalctl -u 
 
 - **Màn hình báo "Mất kết nối với máy chủ"**: kiểm tra máy chủ còn bật, dây mạng còn cắm, và địa chỉ IP chưa đổi. Bấm **Thử lại**.
 - **Quét mã không vào giỏ**: kiểm tra máy quét còn cắm. Có thể gõ mã vào ô "Quét mã vạch hoặc nhập mã" rồi nhấn Enter.
-- **Quên mã PIN chủ quán**: liên hệ người cài đặt phần mềm để được hỗ trợ đặt lại.
+- **Quên mã PIN chủ quán**: xem mục "Quên mã PIN" ngay dưới đây.
+
+### Quên mã PIN
+
+Trên máy chủ, mở Terminal và gõ (một dòng):
+
+```
+sudo -u pos env POS_DB_PATH=/var/lib/pos/pos.db /opt/pos/server/.venv/bin/python -m pos.reset_pin
+```
+
+1. Nhập mã PIN mới (4 đến 6 chữ số) rồi nhấn Enter. Khi gõ, màn hình không hiện số; đó là bình thường.
+2. Nhập lại mã PIN mới lần nữa rồi nhấn Enter.
+3. Thấy dòng **"Đã đặt lại mã PIN chủ quán"** là xong. Không cần khởi động lại phần mềm.
+
+Lệnh này cũng xóa các lần nhập sai trước đó, nên màn hình đang bị khóa vì nhập sai nhiều lần sẽ dùng được ngay. Phiên chủ quán đang mở (nếu có) sẽ phải nhập lại mã PIN mới.
